@@ -31,6 +31,76 @@ docker compose up --build -d
 
 ---
 
+## 🚀 วิธี Deploy ขึ้น Production
+
+### 1. เตรียมเซิร์ฟเวอร์
+* ติดตั้ง [Docker Engine](https://docs.docker.com/engine/install/) และ Docker Compose plugin บนเซิร์ฟเวอร์ (แนะนำ Ubuntu 22.04+)
+* เปิดพอร์ตที่จำเป็นบน Firewall: `80`/`443` (reverse proxy), `8554` (RTSP), `8555/tcp+udp` (WebRTC) — **ไม่ต้อง**เปิด `5432`, `8000`, `1984`, `3000` ออกสู่อินเทอร์เน็ตโดยตรง ให้เข้าผ่าน reverse proxy เท่านั้น
+
+### 2. Clone โปรเจกต์และตั้งค่า Environment
+```bash
+git clone <URL ของ repository นี้>
+cd saraburi-cctv-system
+
+# คัดลอกไฟล์ .env ตัวอย่างทั้งหมดในระบบ แล้วแก้ไขค่าจริงก่อน deploy
+cp .env.example .env
+cp frontend/.env.example frontend/.env
+```
+จากนั้นเปิดไฟล์ `.env` (root) แล้วแก้ไขค่าต่อไปนี้ให้เป็นค่าจริงของหน่วยงาน **ห้ามใช้ค่า default ที่มากับตัวอย่างเด็ดขาด**:
+* `POSTGRES_PASSWORD` — ตั้งรหัสผ่านฐานข้อมูลใหม่ที่คาดเดายาก
+* `JWT_SECRET` — สร้างค่าใหม่ด้วยคำสั่ง `openssl rand -hex 32`
+* `CORS_ORIGINS` — ระบุโดเมนจริงของหน้าบ้านที่จะอนุญาตให้เรียก API (คั่นด้วย `,` ถ้ามีหลายโดเมน)
+* `VITE_API_URL`, `VITE_MEDIA_URL` — ระบุ URL จริงที่ผู้ใช้ปลายทางเข้าถึงได้ (ผ่านโดเมน/HTTPS ไม่ใช่ `localhost`)
+* `ENVIRONMENT=production`
+
+> ⚠️ ไฟล์ `frontend/.env` ใช้สำหรับกรณีรัน `npm run dev`/`build` นอก Docker เท่านั้น เมื่อรันผ่าน `docker compose` ค่า `VITE_API_URL`/`VITE_MEDIA_URL` จะถูกอ่านจาก root `.env` ไปฝังตอน build อิมเมจ frontend แทน (ดูหัวข้อถัดไป)
+
+นอกจากนี้ให้แก้ไขไฟล์ `media-config/go2rtc.yaml`:
+* เปลี่ยน `rtsp.username` / `rtsp.password` เป็นค่าใหม่ที่ไม่ใช่ค่า default
+* เพิ่ม IP สาธารณะจริงของเซิร์ฟเวอร์ในส่วน `webrtc.candidates` (ปลดคอมเมนต์บรรทัด `# - 10.0.0.100` แล้วใส่ IP จริง)
+* ปรับ/ลบรายการใน `streams:` ให้เหลือเฉพาะกล้องจริงที่จะเชื่อมต่อ (ลบ `srb_test_stream_1` ตัวอย่างออก)
+
+### 3. Build และรันระบบแบบ Production
+```bash
+docker compose --env-file .env build --no-cache
+docker compose --env-file .env up -d
+```
+> เหตุผลที่ต้องระบุ `--no-cache` ตอน build ครั้งแรกหลังแก้ `.env`: ค่า `VITE_API_URL`/`VITE_MEDIA_URL` ถูกส่งเป็น Docker build args และฝังลงใน JS bundle ตอน build เท่านั้น ถ้าแก้ `.env` แล้วต้อง build ใหม่ทุกครั้งเพื่อให้ค่าอัปเดต (แก้ค่าตอน runtime ภายหลังจะไม่มีผล)
+
+ตรวจสอบว่าทุก container สถานะ `Up` แล้ว:
+```bash
+docker compose ps
+docker compose logs -f backend
+```
+
+### 4. ตั้งค่า Reverse Proxy + HTTPS (แนะนำ)
+ควรวาง Nginx/Caddy/Traefik ไว้หน้า container `frontend` (3000), `backend` (8000) และ `media` (1984/8554/8555) เพื่อ:
+* ให้บริการผ่าน HTTPS ด้วยใบรับรองจริง (เช่น Let's Encrypt)
+* รวมทุกบริการไว้ภายใต้โดเมนเดียว ตรงกับค่าที่ตั้งใน `VITE_API_URL`/`VITE_MEDIA_URL`/`CORS_ORIGINS`
+* ปิดพอร์ตของแต่ละ container ไม่ให้เข้าถึงตรงจากอินเทอร์เน็ต
+
+### 5. หลัง Deploy ครั้งแรก
+* เปลี่ยนรหัสผ่านบัญชีทดสอบทั้งหมด (ดูตารางด้านล่าง) หรือปิดการใช้งานบัญชีที่ไม่จำเป็นก่อนเปิดใช้งานจริง
+* ตั้งค่าสำรองข้อมูลฐานข้อมูล (`pgdata` volume) เป็นประจำ เช่น `pg_dump` ผ่าน cron job บนโฮสต์
+* ตรวจสอบ retention period การเก็บวิดีโอ (Tab E) ให้สอดคล้องกับ พ.ร.บ. PDPA
+
+### คำสั่งที่ใช้บ่อย
+```bash
+# อัปเดตโค้ดและ rebuild เฉพาะ service ที่แก้ไข
+git pull && docker compose --env-file .env up -d --build backend
+
+# ดู log แบบ real-time
+docker compose logs -f
+
+# หยุดระบบทั้งหมด (ข้อมูลใน volume ยังอยู่)
+docker compose down
+
+# สำรองฐานข้อมูล
+docker compose exec db pg_dump -U srb_admin srb_cctv_registry > backup_$(date +%F).sql
+```
+
+---
+
 ## 🔑 บัญชีเข้าทดสอบระบบแยกตามขอบเขตสิทธิ์ (Scoped Test Accounts)
 
 | บัญชีเข้าใช้ | รหัสผ่าน | บทบาท (Role) | ขอบเขตข้อมูล (Data Scoping) | สิทธิ์หลักในระบบ |

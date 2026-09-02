@@ -4,9 +4,9 @@ services:
     container_name: srb-cctv-db
     restart: always
     environment:
-      POSTGRES_USER: srb_admin
-      POSTGRES_PASSWORD: srb_secure_password_2569
-      POSTGRES_DB: srb_cctv_registry
+      POSTGRES_USER: ${POSTGRES_USER:-srb_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-srb_secure_password_2569}
+      POSTGRES_DB: ${POSTGRES_DB:-srb_cctv_registry}
     ports:
       - "5432:5432"
     volumes:
@@ -38,10 +38,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://srb_admin:srb_secure_password_2569@db:5432/srb_cctv_registry
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-srb_admin}:${POSTGRES_PASSWORD:-srb_secure_password_2569}@db:5432/${POSTGRES_DB:-srb_cctv_registry}
       - MEDIA_SERVER_API=http://media:1984
-      - JWT_SECRET=srb_jwt_secret_key_2026_super_secure
-      - ENVIRONMENT=development
+      - JWT_SECRET=${JWT_SECRET:-srb_jwt_secret_key_2026_super_secure}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
     depends_on:
       - db
       - media
@@ -52,13 +53,15 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      # VITE_* ต้องส่งเป็น build args เพราะ Vite ฝังค่าลงใน bundle ตอน build เท่านั้น
+      # (ตั้งค่าตอน `environment:` ตอนรัน container จะไม่มีผลกับหน้าเว็บที่ build ไว้แล้ว)
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
+        VITE_MEDIA_URL: ${VITE_MEDIA_URL:-http://localhost:1984}
     container_name: srb-cctv-frontend
     restart: always
     ports:
       - "3000:3000"
-    environment:
-      - VITE_API_URL=http://localhost:8000/api/v1
-      - VITE_MEDIA_URL=http://localhost:1984
     depends_on:
       - backend
     networks:
