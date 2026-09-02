@@ -93,3 +93,6 @@ db_data/
 media_data/
 pgdata/
 data/
+
+# มี credentials กล้อง RTSP จริงเมื่อ deploy production ห้าม commit ขึ้น git
+media-config/go2rtc.yaml

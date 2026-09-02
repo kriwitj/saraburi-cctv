@@ -45,6 +45,7 @@ cd saraburi-cctv-system
 # คัดลอกไฟล์ .env ตัวอย่างทั้งหมดในระบบ แล้วแก้ไขค่าจริงก่อน deploy
 cp .env.example .env
 cp frontend/.env.example frontend/.env
+cp media-config/go2rtc.yaml.example media-config/go2rtc.yaml
 ```
 จากนั้นเปิดไฟล์ `.env` (root) แล้วแก้ไขค่าต่อไปนี้ให้เป็นค่าจริงของหน่วยงาน **ห้ามใช้ค่า default ที่มากับตัวอย่างเด็ดขาด**:
 * `POSTGRES_PASSWORD` — ตั้งรหัสผ่านฐานข้อมูลใหม่ที่คาดเดายาก
@@ -57,12 +58,12 @@ cp frontend/.env.example frontend/.env
 
 > ⚠️ ไฟล์ `frontend/.env` ใช้สำหรับกรณีรัน `npm run dev`/`build` นอก Docker เท่านั้น เมื่อรันผ่าน `docker compose` ค่า `VITE_API_URL`/`VITE_MEDIA_URL` จะถูกอ่านจาก root `.env` ไปฝังตอน build อิมเมจ frontend แทน (ดูหัวข้อถัดไป)
 
-นอกจากนี้ให้แก้ไขไฟล์ `media-config/go2rtc.yaml`:
+จากนั้นแก้ไขไฟล์ `media-config/go2rtc.yaml` ที่คัดลอกมา:
 * เปลี่ยน `rtsp.username` / `rtsp.password` เป็นค่าใหม่ที่ไม่ใช่ค่า default
 * เพิ่ม IP สาธารณะจริงของเซิร์ฟเวอร์ในส่วน `webrtc.candidates` (ปลดคอมเมนต์บรรทัด `# - 10.0.0.100` แล้วใส่ IP จริง)
-* ปรับ/ลบรายการใน `streams:` ให้เหลือเฉพาะกล้องจริงที่จะเชื่อมต่อ (ลบ `srb_test_stream_1` ตัวอย่างออก)
+* เพิ่มรายการกล้องจริงที่จะเชื่อมต่อลงใน `streams:`
 
-> ⚠️ ไฟล์นี้ไม่ได้อ่านค่าจาก `.env` (go2rtc mount เป็นไฟล์ yaml ตรง ๆ ไม่รองรับ `${VAR}` เหมือน docker-compose) เมื่อเริ่มใส่ URL/รหัสผ่านกล้องจริงลงใน `streams:` ให้เพิ่ม `media-config/go2rtc.yaml` เข้า `.gitignore` ก่อน commit เพื่อไม่ให้ credentials กล้องหลุดขึ้น git
+> ⚠️ ไฟล์นี้ไม่ได้อ่านค่าจาก `.env` (go2rtc mount เป็นไฟล์ yaml ตรง ๆ ไม่รองรับ `${VAR}` เหมือน docker-compose) และถูก `.gitignore` ไว้แล้วเพราะจะมี URL/รหัสผ่านกล้องจริงอยู่ข้างใน — **ห้าม** ลบออกจาก `.gitignore` หรือ commit ไฟล์นี้ขึ้น git โดยเด็ดขาด
 
 ### 3. ตั้งค่า Reverse Proxy + HTTPS ด้วย Traefik (แนะนำ)
 โปรเจกต์นี้มีไฟล์ `docker-compose.prod.yml` เตรียมไว้สำหรับเชื่อมต่อกับ **Traefik ตัวหลักที่รันอยู่แล้วบนเซิร์ฟเวอร์** (ใช้ pattern เดียวกับแอปอื่น ๆ ที่ใช้ network `proxy_net` ร่วมกัน) โดยไม่ต้องรัน Traefik ซ้ำอีกชุด
