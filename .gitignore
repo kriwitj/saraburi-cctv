@@ -88,11 +88,11 @@ lerna-debug.log*
 !frontend/.dockerignore
 !backend/.dockerignore
 
-# Database / Local media storage
-db_data/
-media_data/
-pgdata/
-data/
+# Database / Local media storage (เฉพาะ root เท่านั้น ไม่ให้ชนกับ frontend/src/data ฯลฯ)
+/db_data/
+/media_data/
+/pgdata/
+/data/
 
 # มี credentials กล้อง RTSP จริงเมื่อ deploy production ห้าม commit ขึ้น git
 media-config/go2rtc.yaml
