@@ -52,6 +52,8 @@ cp frontend/.env.example frontend/.env
 * `CORS_ORIGINS` — ระบุโดเมนจริงของหน้าบ้านที่จะอนุญาตให้เรียก API (คั่นด้วย `,` ถ้ามีหลายโดเมน)
 * `VITE_API_URL`, `VITE_MEDIA_URL` — ระบุ URL จริงที่ผู้ใช้ปลายทางเข้าถึงได้ (ผ่านโดเมน/HTTPS ไม่ใช่ `localhost`)
 * `ENVIRONMENT=production`
+* `APP_DOMAIN`, `API_DOMAIN`, `STREAM_DOMAIN` — โดเมน/ซับโดเมนจริงที่ตั้ง DNS ชี้มาเซิร์ฟเวอร์นี้แล้ว (ใช้เมื่อ deploy ผ่าน Traefik ตามข้อ 4)
+* `BIND_ADDRESS` — ตั้งเป็น `127.0.0.1` เมื่อ deploy ผ่าน Traefik (ค่า default `0.0.0.0` มีไว้สำหรับกรณีไม่ใช้ reverse proxy)
 
 > ⚠️ ไฟล์ `frontend/.env` ใช้สำหรับกรณีรัน `npm run dev`/`build` นอก Docker เท่านั้น เมื่อรันผ่าน `docker compose` ค่า `VITE_API_URL`/`VITE_MEDIA_URL` จะถูกอ่านจาก root `.env` ไปฝังตอน build อิมเมจ frontend แทน (ดูหัวข้อถัดไป)
 
@@ -60,12 +62,30 @@ cp frontend/.env.example frontend/.env
 * เพิ่ม IP สาธารณะจริงของเซิร์ฟเวอร์ในส่วน `webrtc.candidates` (ปลดคอมเมนต์บรรทัด `# - 10.0.0.100` แล้วใส่ IP จริง)
 * ปรับ/ลบรายการใน `streams:` ให้เหลือเฉพาะกล้องจริงที่จะเชื่อมต่อ (ลบ `srb_test_stream_1` ตัวอย่างออก)
 
-### 3. Build และรันระบบแบบ Production
+### 3. ตั้งค่า Reverse Proxy + HTTPS ด้วย Traefik (แนะนำ)
+โปรเจกต์นี้มีไฟล์ `docker-compose.prod.yml` เตรียมไว้สำหรับเชื่อมต่อกับ **Traefik ตัวหลักที่รันอยู่แล้วบนเซิร์ฟเวอร์** (ใช้ pattern เดียวกับแอปอื่น ๆ ที่ใช้ network `proxy_net` ร่วมกัน) โดยไม่ต้องรัน Traefik ซ้ำอีกชุด
+
+ข้อกำหนดก่อนใช้:
+* มี Traefik หลักรันอยู่แล้ว พร้อม external network ชื่อ `proxy_net` และ certresolver ชื่อ `letsencrypt` (ถ้ายังไม่มี network นี้ ให้สร้างก่อนด้วย `docker network create proxy_net`)
+* ตั้งค่า DNS ของ `APP_DOMAIN`, `API_DOMAIN`, `STREAM_DOMAIN` ใน `.env` ให้ชี้มาที่ IP เซิร์ฟเวอร์นี้แล้ว
+* ตั้ง `BIND_ADDRESS=127.0.0.1` ใน `.env` เพื่อไม่ให้พอร์ตของแต่ละ container หลุดออกอินเทอร์เน็ตตรง ๆ (Traefik เข้าถึง container ผ่าน `proxy_net` โดยไม่ต้องพึ่งพอร์ตที่ publish บนโฮสต์)
+* `VITE_API_URL=https://${API_DOMAIN}/api/v1` และ `VITE_MEDIA_URL=https://${STREAM_DOMAIN}` ต้องตรงกับโดเมนที่ตั้งไว้จริง
+
+Build และรันด้วยไฟล์ compose ทั้งสองรวมกัน:
 ```bash
-docker compose --env-file .env build --no-cache
-docker compose --env-file .env up -d
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env build --no-cache
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env up -d
 ```
 > เหตุผลที่ต้องระบุ `--no-cache` ตอน build ครั้งแรกหลังแก้ `.env`: ค่า `VITE_API_URL`/`VITE_MEDIA_URL` ถูกส่งเป็น Docker build args และฝังลงใน JS bundle ตอน build เท่านั้น ถ้าแก้ `.env` แล้วต้อง build ใหม่ทุกครั้งเพื่อให้ค่าอัปเดต (แก้ค่าตอน runtime ภายหลังจะไม่มีผล)
+
+`docker-compose.prod.yml` จะเพิ่ม Traefik labels ให้ 3 service:
+* `frontend` → `https://${APP_DOMAIN}` (และ redirect จาก `www.` เข้าโดเมนหลัก)
+* `backend` (API) → `https://${API_DOMAIN}`
+* `media` (go2rtc Web API เท่านั้น) → `https://${STREAM_DOMAIN}`
+
+⚠️ RTSP (`8554`) และ WebRTC (`8555/tcp+udp`) เป็นโปรโตคอลที่ไม่ใช่ HTTP Traefik proxy ให้ไม่ได้ จึงยังคงต้องเปิดพอร์ตเหล่านี้ตรงบน Firewall ของเซิร์ฟเวอร์เสมอ (จำกัดเฉพาะ IP ที่จำเป็นถ้าทำได้)
+
+> **ไม่ต้องการใช้ Traefik?** รันเฉพาะ `docker-compose.yml` ไฟล์เดียวตามข้อ 2 ได้เลย แล้ววาง Nginx/Caddy หรือ reverse proxy อื่นไว้หน้าระบบแทน พร้อมตั้ง `BIND_ADDRESS=127.0.0.1` เช่นกัน
 
 ตรวจสอบว่าทุก container สถานะ `Up` แล้ว:
 ```bash
@@ -73,13 +93,7 @@ docker compose ps
 docker compose logs -f backend
 ```
 
-### 4. ตั้งค่า Reverse Proxy + HTTPS (แนะนำ)
-ควรวาง Nginx/Caddy/Traefik ไว้หน้า container `frontend` (3000), `backend` (8000) และ `media` (1984/8554/8555) เพื่อ:
-* ให้บริการผ่าน HTTPS ด้วยใบรับรองจริง (เช่น Let's Encrypt)
-* รวมทุกบริการไว้ภายใต้โดเมนเดียว ตรงกับค่าที่ตั้งใน `VITE_API_URL`/`VITE_MEDIA_URL`/`CORS_ORIGINS`
-* ปิดพอร์ตของแต่ละ container ไม่ให้เข้าถึงตรงจากอินเทอร์เน็ต
-
-### 5. หลัง Deploy ครั้งแรก
+### 4. หลัง Deploy ครั้งแรก
 * เปลี่ยนรหัสผ่านบัญชีทดสอบทั้งหมด (ดูตารางด้านล่าง) หรือปิดการใช้งานบัญชีที่ไม่จำเป็นก่อนเปิดใช้งานจริง
 * ตั้งค่าสำรองข้อมูลฐานข้อมูล (`pgdata` volume) เป็นประจำ เช่น `pg_dump` ผ่าน cron job บนโฮสต์
 * ตรวจสอบ retention period การเก็บวิดีโอ (Tab E) ให้สอดคล้องกับ พ.ร.บ. PDPA
@@ -87,13 +101,13 @@ docker compose logs -f backend
 ### คำสั่งที่ใช้บ่อย
 ```bash
 # อัปเดตโค้ดและ rebuild เฉพาะ service ที่แก้ไข
-git pull && docker compose --env-file .env up -d --build backend
+git pull && docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env up -d --build backend
 
 # ดู log แบบ real-time
 docker compose logs -f
 
 # หยุดระบบทั้งหมด (ข้อมูลใน volume ยังอยู่)
-docker compose down
+docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 
 # สำรองฐานข้อมูล
 docker compose exec db pg_dump -U srb_admin srb_cctv_registry > backup_$(date +%F).sql

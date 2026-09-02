@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-srb_secure_password_2569}
       POSTGRES_DB: ${POSTGRES_DB:-srb_cctv_registry}
     ports:
-      - "5432:5432"
+      - "${BIND_ADDRESS:-0.0.0.0}:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./db-init:/docker-entrypoint-initdb.d
@@ -20,10 +20,10 @@ services:
     container_name: srb-cctv-media
     restart: always
     ports:
-      - "1984:1984" # API / Web UI
-      - "8554:8554" # RTSP Server
-      - "8555:8555/tcp" # WebRTC TCP
-      - "8555:8555/udp" # WebRTC UDP
+      - "${BIND_ADDRESS:-0.0.0.0}:1984:1984" # API / Web UI
+      - "8554:8554" # RTSP Server (โปรโตคอลตรง ต้องเปิดออกเสมอ ไม่ผ่าน Traefik)
+      - "8555:8555/tcp" # WebRTC TCP (โปรโตคอลตรง ต้องเปิดออกเสมอ ไม่ผ่าน Traefik)
+      - "8555:8555/udp" # WebRTC UDP (โปรโตคอลตรง ต้องเปิดออกเสมอ ไม่ผ่าน Traefik)
     volumes:
       - ./media-config/go2rtc.yaml:/config/go2rtc.yaml
     networks:
@@ -36,7 +36,7 @@ services:
     container_name: srb-cctv-backend
     restart: always
     ports:
-      - "8000:8000"
+      - "${BIND_ADDRESS:-0.0.0.0}:8000:8000"
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-srb_admin}:${POSTGRES_PASSWORD:-srb_secure_password_2569}@db:5432/${POSTGRES_DB:-srb_cctv_registry}
       - MEDIA_SERVER_API=http://media:1984
@@ -61,7 +61,7 @@ services:
     container_name: srb-cctv-frontend
     restart: always
     ports:
-      - "3000:3000"
+      - "${BIND_ADDRESS:-0.0.0.0}:3000:3000"
     depends_on:
       - backend
     networks:
