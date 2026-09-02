@@ -101,19 +101,6 @@ docker compose exec db pg_dump -U srb_admin srb_cctv_registry > backup_$(date +%
 
 ---
 
-## 🔑 บัญชีเข้าทดสอบระบบแยกตามขอบเขตสิทธิ์ (Scoped Test Accounts)
-
-| บัญชีเข้าใช้ | รหัสผ่าน | บทบาท (Role) | ขอบเขตข้อมูล (Data Scoping) | สิทธิ์หลักในระบบ |
-| :--- | :--- | :--- | :--- | :--- |
-| **`srb_super_admin`** | `password_123` | Super Admin | **ทั้งจังหวัด** | ตั้งค่าทุกอย่าง, จัดการ Master Data, สลับ checklist ใน RBAC matrix table |
-| **`gov_viewer`** | `password_123` | Governor Viewer | **ทั้งจังหวัด** | ดู Dashboard + GIS + รายงาน ได้อย่างเดียว (**Read-only** - ซ่อนปุ่มแก้ไข/ลบ) |
-| **`district_1901`** | `password_123` | District Admin | **เฉพาะอำเภอตน** | ดูภาพรวมและหมุดกล้องในเขตอำเภอเมืองสระบุรี, อนุมัติสิทธิ์ และดูภาพสดกล้อง |
-| **`localgov_la190101`** | `password_123` | Local Gov Staff | **เฉพาะ อปท. ตน** | บันทึก/แก้ไขข้อมูลกล้องสังกัดเทศบาลเมืองสระบุรี (LA-190101), สั่งออกใบแจ้งซ่อมกล้อง |
-| **`ma_tech`** | `password_123` | MA Technician | **ตามที่ได้รับมอบหมาย** | เข้าถึง MA Panel เพื่อดูตั๋วชำรุด กดรับงานซ่อม (Accept) และสั่งปิดงานแนบรูปภาพถ่ายหน้างาน |
-| **`police_srb`** | `password_123` | Police Viewer | **ตามพิกัดคดีที่อนุมัติ** | ยื่นคำร้องขอดึงภาพวิดีโอย้อนหลังประกอบคดีความมั่นคง (หมดอายุตามกำหนดสิทธิ์ PDPA) |
-
----
-
 ## 📂 โครงสร้างการจัดแบ่งโฟลเดอร์โครงการ (Clean Architecture)
 ```text
 saraburi-cctv-system/
