@@ -1,0 +1,28 @@
+# go2rtc.yaml configuration
+# การตั้งค่าสำหรับระบบแปลงสัญญาณ RTSP -> WebRTC / HLS สำหรับจังหวัดสระบุรี
+
+api:
+  listen: ":1984"
+
+rtsp:
+  listen: ":8554"
+  username: "srb_stream_admin"
+  password: "srb_stream_secure_password"
+
+webrtc:
+  listen: ":8555"
+  candidates:
+    - 127.0.0.1
+    # ใส่ IP จริงของเซิร์ฟเวอร์ GDCC เพื่อให้ Client ด้านนอกเข้าเชื่อมต่อ WebRTC ได้
+    # - 10.0.0.100
+
+# รายการสตรีมนำร่องสำหรับจำลองระบบ (Pilot Streams)
+streams:
+  # จำลองด้วยวิดีโอตัวอย่าง (Test Stream)
+  srb_test_stream_1: rtsp://localhost:8554/srb_test_stream_1
+  # ตัวอย่างการระบุกล้องจริง
+  # srb_muang_001: rtsp://admin:pass1234@192.168.1.100:554/h264Preview_01_main
+
+log:
+  level: info
+  format: text

@@ -1,0 +1,1909 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saraburi CCTV System - ทะเบียนกลางและศูนย์บูรณาการกล้อง CCTV จังหวัดสระบุรี</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <style>
+        :root {
+            --bg-obsidian: #080c16;
+            --bg-card: rgba(18, 26, 47, 0.85);
+            --bg-card-hover: rgba(28, 38, 67, 0.95);
+            --border-glow: rgba(0, 242, 254, 0.15);
+            --border-glow-active: rgba(0, 242, 254, 0.4);
+            --color-cyan: #00f2fe;
+            --color-blue: #4facfe;
+            --color-online: #00f5a0;
+            --color-offline: #ff4b5c;
+            --color-warning: #ff9f43;
+            --text-primary: #ffffff;
+            --text-secondary: #8b9bb4;
+            --glass-backdrop: blur(12px);
+            --font-family: 'Outfit', 'Sarabun', sans-serif;
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-obsidian);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            overflow-x: hidden;
+            height: 100vh;
+            display: flex;
+            background-image: radial-gradient(circle at 10% 20%, rgba(0, 242, 254, 0.05) 0%, transparent 40%),
+                              radial-gradient(circle at 90% 80%, rgba(79, 172, 254, 0.05) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        /* Sidebar Navigation */
+        aside {
+            width: 260px;
+            background: rgba(10, 16, 32, 0.95);
+            border-right: 1px solid var(--border-glow);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            z-index: 100;
+            backdrop-filter: var(--glass-backdrop);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 20px;
+        }
+
+        .logo-icon {
+            background: linear-gradient(135deg, var(--color-cyan), var(--color-blue));
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #000;
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.4);
+        }
+
+        .logo-text h1 {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            background: linear-gradient(to right, #ffffff, var(--color-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-text p {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .nav-menu {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex-grow: 1;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            border: 1px solid transparent;
+            font-size: 14px;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            color: var(--text-primary);
+            background: rgba(0, 242, 254, 0.08);
+            border-color: var(--border-glow);
+            box-shadow: inset 0 0 10px rgba(0, 242, 254, 0.05);
+        }
+
+        .nav-item.active i {
+            color: var(--color-cyan);
+            text-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+        }
+
+        .nav-item i {
+            width: 20px;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .user-profile {
+            padding: 15px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #1e293b;
+            border: 2px solid var(--color-cyan);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-cyan);
+            font-weight: bold;
+        }
+
+        .user-info h4 {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .user-info p {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        /* Main Workspace */
+        main {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        header {
+            height: 70px;
+            background: rgba(10, 16, 32, 0.8);
+            border-bottom: 1px solid var(--border-glow);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            backdrop-filter: var(--glass-backdrop);
+            z-index: 90;
+        }
+
+        .header-title h2 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--color-blue), var(--color-cyan));
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.4);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--color-cyan);
+            color: var(--color-cyan);
+            box-shadow: none;
+        }
+
+        .btn-outline:hover {
+            background: rgba(0, 242, 254, 0.1);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text-primary);
+            box-shadow: none;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Tabs Panels */
+        .tab-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 30px;
+            display: none;
+            position: relative;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Cards and Elements Grid */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: var(--glass-backdrop);
+        }
+
+        .card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-glow-active);
+            box-shadow: 0 10px 40px rgba(0, 242, 254, 0.05);
+        }
+
+        /* GIS Map Tab specific design */
+        #map-container {
+            display: flex;
+            height: calc(100vh - 70px);
+            position: relative;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #gis-map {
+            flex-grow: 1;
+            height: 100%;
+            background: #0f172a;
+        }
+
+        .map-overlay-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            width: 320px;
+            max-height: calc(100% - 40px);
+            background: rgba(8, 12, 22, 0.9);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: var(--glass-backdrop);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+        }
+
+        .map-overlay-right {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            width: 380px;
+            background: rgba(8, 12, 22, 0.95);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: var(--glass-backdrop);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 12px;
+            margin-bottom: 5px;
+        }
+
+        .panel-header h3 {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .filter-section h4 {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: var(--transition-smooth);
+        }
+
+        .checkbox-container:hover {
+            color: var(--text-primary);
+        }
+
+        .checkbox-container input {
+            accent-color: var(--color-cyan);
+        }
+
+        .form-select {
+            width: 100%;
+            background: #111a33;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            font-size: 13px;
+            outline: none;
+            transition: var(--transition-smooth);
+        }
+
+        .form-select:focus {
+            border-color: var(--color-cyan);
+            box-shadow: 0 0 8px rgba(0, 242, 254, 0.2);
+        }
+
+        /* Leaflet Custom DivIcon styles */
+        .leaflet-marker-online {
+            background-color: var(--color-online);
+            border: 2px solid #000;
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--color-online);
+        }
+        .leaflet-marker-offline {
+            background-color: var(--color-offline);
+            border: 2px solid #000;
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--color-offline);
+        }
+        .leaflet-marker-ma {
+            background-color: var(--color-warning);
+            border: 2px solid #000;
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--color-warning);
+        }
+
+        /* Stream Mock Video Panel */
+        .video-mock {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #020617;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-overlay-live {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 75, 92, 0.85);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            animation: pulse-live 1.5s infinite;
+        }
+
+        @keyframes pulse-live {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+
+        .video-meta {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            font-size: 11px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 4px 8px;
+            border-radius: 4px;
+            backdrop-filter: blur(4px);
+        }
+
+        /* Dashboard specific design */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .stat-info h3 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        .stat-info p {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .stat-icon.cyan {
+            background: rgba(0, 242, 254, 0.1);
+            color: var(--color-cyan);
+            border: 1px solid rgba(0, 242, 254, 0.2);
+        }
+
+        .stat-icon.green {
+            background: rgba(0, 255, 160, 0.1);
+            color: var(--color-online);
+            border: 1px solid rgba(0, 255, 160, 0.2);
+        }
+
+        .stat-icon.red {
+            background: rgba(255, 75, 92, 0.1);
+            color: var(--color-offline);
+            border: 1px solid rgba(255, 75, 92, 0.2);
+        }
+
+        .stat-icon.orange {
+            background: rgba(255, 159, 67, 0.1);
+            color: var(--color-warning);
+            border: 1px solid rgba(255, 159, 67, 0.2);
+        }
+
+        .dashboard-layout-2col {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .dashboard-level-selector {
+            background: rgba(16, 24, 48, 0.6);
+            border: 1px solid var(--border-glow);
+            border-radius: 8px;
+            padding: 4px;
+            display: inline-flex;
+            gap: 4px;
+            margin-bottom: 20px;
+        }
+
+        .level-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            font-family: var(--font-family);
+        }
+
+        .level-btn.active {
+            background: linear-gradient(135deg, var(--color-blue), var(--color-cyan));
+            color: #000;
+        }
+
+        /* Camera Registry Table Styles */
+        .registry-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            position: relative;
+            flex-grow: 1;
+            max-width: 400px;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        .search-input {
+            width: 100%;
+            background: #111a33;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px 14px 10px 40px;
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            font-size: 13px;
+            outline: none;
+            transition: var(--transition-smooth);
+        }
+
+        .search-input:focus {
+            border-color: var(--color-cyan);
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.15);
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        th {
+            background: rgba(16, 24, 48, 0.9);
+            color: var(--text-secondary);
+            font-weight: 600;
+            padding: 14px 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 14px 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-online {
+            background: rgba(0, 255, 160, 0.1);
+            color: var(--color-online);
+            border: 1px solid rgba(0, 255, 160, 0.2);
+        }
+
+        .badge-offline {
+            background: rgba(255, 75, 92, 0.1);
+            color: var(--color-offline);
+            border: 1px solid rgba(255, 75, 92, 0.2);
+        }
+
+        .badge-ma {
+            background: rgba(255, 159, 67, 0.1);
+            color: var(--color-warning);
+            border: 1px solid rgba(255, 159, 67, 0.2);
+        }
+
+        /* Forms Layout */
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-control {
+            background: #111a33;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 10px 14px;
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            font-size: 13px;
+            outline: none;
+            transition: var(--transition-smooth);
+        }
+
+        .form-control:focus {
+            border-color: var(--color-cyan);
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.15);
+        }
+
+        /* Modal styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal {
+            background: #0d1527;
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 650px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        .close-modal {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 18px;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .close-modal:hover {
+            color: var(--text-primary);
+        }
+
+        /* Simulated Live Video Canvas/Mock */
+        #camera-live-canvas {
+            width: 100%;
+            height: 100%;
+            background: #000;
+        }
+
+        .ticket-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .ticket-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ticket-main h5 {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .ticket-main p {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .ticket-meta {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: flex-end;
+        }
+
+        .dla-badge {
+            font-size: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Audit logs list mockup */
+        .audit-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 250px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .audit-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            border-left: 3px solid var(--color-cyan);
+            display: flex;
+            justify-content: space-between;
+        }
+        .audit-reason {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Presentation Mode styles */
+        .presentation-active {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 99999;
+            background: #060a14;
+            padding: 40px;
+            overflow-y: auto;
+        }
+        .close-presentation-btn {
+            position: absolute;
+            top: 30px;
+            right: 40px;
+            z-index: 100000;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside>
+        <div class="logo-container">
+            <div class="logo-icon"><i class="fa-solid fa-camera-cctv"></i><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="logo-text">
+                <h1>SRI CCTV System</h1>
+                <p>ระบบทะเบียนกลางกล้องสระบุรี</p>
+            </div>
+        </div>
+        
+        <ul class="nav-menu">
+            <li>
+                <div class="nav-item active" onclick="switchTab('gis-map-tab')">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                    <span>แผนที่ GIS บูรณาการ</span>
+                </div>
+            </li>
+            <li>
+                <div class="nav-item" onclick="switchTab('dashboard-tab')">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>แดชบอร์ดสรุปผู้บริหาร</span>
+                </div>
+            </li>
+            <li>
+                <div class="nav-item" onclick="switchTab('registry-tab')">
+                    <i class="fa-solid fa-database"></i>
+                    <span>ทะเบียนสินทรัพย์กล้อง</span>
+                </div>
+            </li>
+            <li>
+                <div class="nav-item" onclick="switchTab('maintenance-tab')">
+                    <i class="fa-solid fa-wrench"></i>
+                    <span>ระบบงานซ่อมบำรุง (MA)</span>
+                </div>
+            </li>
+            <li>
+                <div class="nav-item" onclick="switchTab('request-tab')">
+                    <i class="fa-solid fa-file-shield"></i>
+                    <span>ระบบคำร้องขอภาพ (PDPA)</span>
+                </div>
+            </li>
+        </ul>
+
+        <div class="user-profile">
+            <div class="avatar">IT</div>
+            <div class="user-info">
+                <h4>สำนักงานสถิติจังหวัด</h4>
+                <p>Super Admin (จังหวัด)</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Workspace -->
+    <main>
+        <!-- Header -->
+        <header>
+            <div class="header-title">
+                <h2 id="header-title-text">แผนที่ GIS กล้อง CCTV จังหวัดสระบุรี</h2>
+            </div>
+            <div class="header-controls">
+                <button class="btn btn-outline" id="presentation-btn" onclick="togglePresentationMode()"><i class="fa-solid fa-display"></i> โหมดนำเสนอ (จอภาพ)</button>
+                <button class="btn" onclick="openAddCameraModal()"><i class="fa-solid fa-plus"></i> ลงทะเบียนกล้องใหม่</button>
+            </div>
+        </header>
+
+        <!-- GIS MAP TAB -->
+        <div id="gis-map-tab" class="tab-content active" style="padding: 0; height: calc(100vh - 70px);">
+            <div id="map-container">
+                <!-- Left Overlay Panel for Filtering -->
+                <div class="map-overlay-panel">
+                    <div class="panel-header">
+                        <h3><i class="fa-solid fa-filter"></i> ตัวกรองข้อมูลแผนที่</h3>
+                    </div>
+                    <div class="filter-section">
+                        <h4>พื้นที่การปกครอง</h4>
+                        <div class="filter-group">
+                            <label class="form-label">อำเภอ</label>
+                            <select class="form-select" id="map-filter-district" onchange="filterMapMarkers()">
+                                <option value="ALL">-- ทุกอำเภอ --</option>
+                                <option value="1901">อำเภอเมืองสระบุรี</option>
+                                <option value="1902">อำเภอแก่งคอย</option>
+                                <option value="1903">อำเภอหนองแค</option>
+                                <option value="1909">อำเภอพระพุทธบาท</option>
+                                <option value="1910">อำเภอเสาไห้</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="filter-section">
+                        <h4>สถานะกล้อง</h4>
+                        <div class="filter-group">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="status-online-chk" checked onchange="filterMapMarkers()">
+                                <span><i class="fa-solid fa-circle" style="color: var(--color-online);"></i> Online (ใช้งานได้ปกติ)</span>
+                            </label>
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="status-offline-chk" checked onchange="filterMapMarkers()">
+                                <span><i class="fa-solid fa-circle" style="color: var(--color-offline);"></i> Offline (ชำรุด/ล่ม)</span>
+                            </label>
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="status-ma-chk" checked onchange="filterMapMarkers()">
+                                <span><i class="fa-solid fa-circle" style="color: var(--color-warning);"></i> อยู่ระหว่างการซ่อม</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="filter-section">
+                        <h4>วัตถุประสงค์ / ประเภทจุด</h4>
+                        <div class="filter-group">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="type-accident-chk" checked onchange="filterMapMarkers()">
+                                <span>จุดเสี่ยงอุบัติเหตุ</span>
+                            </label>
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="type-crime-chk" checked onchange="filterMapMarkers()">
+                                <span>จุดเสี่ยงอาชญากรรม</span>
+                            </label>
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="type-traffic-chk" checked onchange="filterMapMarkers()">
+                                <span>ด้านจราจร/แยกสำคัญ</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Overlay Panel for Camera Details and Live View -->
+                <div class="map-overlay-right" id="camera-detail-panel">
+                    <div class="panel-header">
+                        <h3 id="panel-cam-id">SRI-1901-LA190101-0001</h3>
+                        <button class="close-modal" onclick="closeCameraDetailPanel()"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="video-mock">
+                        <div class="video-overlay-live"><i class="fa-solid fa-circle"></i> LIVE</div>
+                        <div class="video-meta" id="panel-cam-coords">Coords: 14.526402, 100.914285</div>
+                        <canvas id="camera-live-canvas"></canvas>
+                    </div>
+                    <div>
+                        <h4 style="font-size: 14px; margin-bottom: 5px;" id="panel-cam-name">จุดติดตั้ง: แยกโต้รุ่งสระบุรี</h4>
+                        <p style="font-size: 12px; color: var(--text-secondary);" id="panel-cam-owner">หน่วยงานรับผิดชอบ: เทศบาลเมืองสระบุรี</p>
+                    </div>
+                    <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                        <div><strong>ยี่ห้อ/รุ่น:</strong> <span id="panel-cam-brand">Hikvision DS-2CD2</span></div>
+                        <div><strong>ประเภท:</strong> <span id="panel-cam-type">BULLET</span></div>
+                        <div><strong>สถานะเครือข่าย:</strong> <span id="panel-cam-status" class="badge badge-online">ONLINE</span></div>
+                        <div><strong>ทิศทางหัน (Azimuth):</strong> <span id="panel-cam-azimuth">120°</span></div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-outline" style="flex: 1;" onclick="openReportIncidentFromPanel()"><i class="fa-solid fa-wrench"></i> แจ้งเสีย/ซ่อม</button>
+                        <button class="btn" style="flex: 1;" onclick="alert('ระบบเปิดสตรีมภาพความละเอียดสูงผ่าน Integration Layer เรียบร้อย (บันทึก Audit Log แล้ว)')"><i class="fa-solid fa-maximize"></i> ขยายภาพใหญ่</button>
+                    </div>
+                </div>
+
+                <!-- Leaflet Map Integration -->
+                <div id="gis-map"></div>
+            </div>
+        </div>
+
+        <!-- EXECUTIVE DASHBOARD TAB -->
+        <div id="dashboard-tab" class="tab-content">
+            <div class="dashboard-level-selector">
+                <button class="level-btn active" id="lvl-p-btn" onclick="setDashboardLevel('province')">ระดับจังหวัด (สระบุรีภาพรวม)</button>
+                <button class="level-btn" id="lvl-d-btn" onclick="setDashboardLevel('district')">ระดับอำเภอ (เปรียบเทียบ)</button>
+                <button class="level-btn" id="lvl-l-btn" onclick="setDashboardLevel('local')">ระดับ อปท. (รายหน่วยงาน)</button>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="dashboard-grid">
+                <div class="card stat-card">
+                    <div class="stat-info">
+                        <p>จำนวนกล้อง CCTV ทะเบียนกลาง</p>
+                        <h3 id="stat-total-cams">10,420 ตัว</h3>
+                    </div>
+                    <div class="stat-icon cyan">
+                        <i class="fa-solid fa-camera"></i>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-info">
+                        <p>อัตราความพร้อมใช้เฉลี่ย (Uptime)</p>
+                        <h3 id="stat-uptime">97.85%</h3>
+                    </div>
+                    <div class="stat-icon green">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-info">
+                        <p>จำนวนที่อยู่ระหว่างชำรุด/แจ้งซ่อม</p>
+                        <h3 id="stat-failed">224 ตัว</h3>
+                    </div>
+                    <div class="stat-icon red">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-info">
+                        <p>งบประมาณลงทุนรวมสะสม</p>
+                        <h3 id="stat-budget">104.2 ล้านบาท</h3>
+                    </div>
+                    <div class="stat-icon orange">
+                        <i class="fa-solid fa-wallet"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-layout-2col">
+                <div class="card" style="display: flex; flex-direction: column; gap: 15px;">
+                    <h3 style="font-size: 15px; font-weight: 600;" id="chart-main-title">สถิติการใช้งานกล้องจำแนกรายอำเภอ (ตัว)</h3>
+                    <div style="height: 300px; display: flex; align-items: flex-end; justify-content: space-between; padding-top: 20px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <!-- Bar chart mockups -->
+                        <div style="width: 12%; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                            <span style="font-size: 11px;">4,250</span>
+                            <div style="width: 100%; height: 210px; background: linear-gradient(to top, var(--color-blue), var(--color-cyan)); border-radius: 4px 4px 0 0; box-shadow: 0 0 10px rgba(0,242,254,0.2);"></div>
+                            <span style="font-size: 11px; color: var(--text-secondary); margin-top: 5px;">อ.เมือง</span>
+                        </div>
+                        <div style="width: 12%; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                            <span style="font-size: 11px;">2,100</span>
+                            <div style="width: 100%; height: 105px; background: linear-gradient(to top, var(--color-blue), var(--color-cyan)); border-radius: 4px 4px 0 0;"></div>
+                            <span style="font-size: 11px; color: var(--text-secondary); margin-top: 5px;">อ.หนองแค</span>
+                        </div>
+                        <div style="width: 12%; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                            <span style="font-size: 11px;">1,850</span>
+                            <div style="width: 100%; height: 92px; background: linear-gradient(to top, var(--color-blue), var(--color-cyan)); border-radius: 4px 4px 0 0;"></div>
+                            <span style="font-size: 11px; color: var(--text-secondary); margin-top: 5px;">อ.แก่งคอย</span>
+                        </div>
+                        <div style="width: 12%; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                            <span style="font-size: 11px;">1,220</span>
+                            <div style="width: 100%; height: 61px; background: linear-gradient(to top, var(--color-blue), var(--color-cyan)); border-radius: 4px 4px 0 0;"></div>
+                            <span style="font-size: 11px; color: var(--text-secondary); margin-top: 5px;">อ.พระพุทธบาท</span>
+                        </div>
+                        <div style="width: 12%; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                            <span style="font-size: 11px;">600</span>
+                            <div style="width: 100%; height: 30px; background: linear-gradient(to top, var(--color-blue), var(--color-cyan)); border-radius: 4px 4px 0 0;"></div>
+                            <span style="font-size: 11px; color: var(--text-secondary); margin-top: 5px;">อ.เสาไห้</span>
+                        </div>
+                        <div style="width: 12%; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                            <span style="font-size: 11px;">400</span>
+                            <div style="width: 100%; height: 20px; background: linear-gradient(to top, var(--color-blue), var(--color-cyan)); border-radius: 4px 4px 0 0;"></div>
+                            <span style="font-size: 11px; color: var(--text-secondary); margin-top: 5px;">อ.วิหารแดง</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="display: flex; flex-direction: column; gap: 15px;">
+                    <h3 style="font-size: 15px; font-weight: 600;">สาเหตุการขัดข้อง (Ticket Analytics)</h3>
+                    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 15px;">
+                        <div>
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+                                <span>ไฟฟ้าลัดวงจร / ภัยธรรมชาติ</span>
+                                <span style="color: var(--color-warning);">42%</span>
+                            </div>
+                            <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px;">
+                                <div style="width: 42%; height: 100%; background: var(--color-warning); border-radius: 3px;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+                                <span>สัญญาณเชื่อมต่อล่ม (Internet Down)</span>
+                                <span style="color: var(--color-cyan);">35%</span>
+                            </div>
+                            <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px;">
+                                <div style="width: 35%; height: 100%; background: var(--color-cyan); border-radius: 3px;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+                                <span>อุปกรณ์เสื่อมสภาพตามอายุสัญญา</span>
+                                <span style="color: var(--color-offline);">15%</span>
+                            </div>
+                            <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px;">
+                                <div style="width: 15%; height: 100%; background: var(--color-offline); border-radius: 3px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CAMERA REGISTRY TAB -->
+        <div id="registry-tab" class="tab-content">
+            <div class="registry-toolbar">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" class="search-input" id="registry-search" placeholder="ค้นหาด้วย ซีเรียลนัมเบอร์ หรือ ชื่อจุดติดตั้ง..." onkeyup="filterRegistryTable()">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-secondary" onclick="openBulkImportModal()"><i class="fa-solid fa-file-excel"></i> นำเข้าด้วย Excel</button>
+                    <button class="btn" onclick="openAddCameraModal()"><i class="fa-solid fa-plus"></i> ลงทะเบียนกล้องใหม่</button>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 0;">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>รหัสสินทรัพย์ (จังหวัด)</th>
+                                <th>ซีเรียลนัมเบอร์</th>
+                                <th>จุดติดตั้ง / สถานที่อ้างอิง</th>
+                                <th>อปท. เจ้าของ</th>
+                                <th>ยี่ห้อ/รุ่น</th>
+                                <th>ประเภทกล้อง</th>
+                                <th>สถานะ</th>
+                                <th>การดำเนินการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="registry-table-body">
+                            <!-- JS will populate rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAINTENANCE TAB -->
+        <div id="maintenance-tab" class="tab-content">
+            <div class="dashboard-layout-2col">
+                <div class="card">
+                    <h3 style="font-size: 15px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 15px;">
+                        <i class="fa-solid fa-wrench"></i> บันทึกแจ้งซ่อมและใบงานบำรุงรักษา
+                    </h3>
+                    <form id="maintenance-form" onsubmit="submitMaintenanceForm(event)">
+                        <div class="form-group">
+                            <label class="form-label">รหัสกล้องชำรุด (Camera ID) *</label>
+                            <select class="form-select" id="maint-camera-id" required>
+                                <option value="SRI-1901-LA190101-0003">SRI-1901-LA190101-0003 - สถานีรถไฟสระบุรี</option>
+                                <option value="SRI-1913-LA191001-0005">SRI-1913-LA191001-0005 - อำเภอเฉลิมพระเกียรติ</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">อาการเสีย / ข้อผิดพลาดหลัก *</label>
+                            <input type="text" class="form-control" id="maint-issue" placeholder="เช่น สัญญาณภาพขาดหาย, กล้องมุมก้มผิดตำแหน่ง" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">หมวดหมู่อาการ</label>
+                                <select class="form-select" id="maint-category">
+                                    <option value="NETWORK_DOWN">ระบบเครือข่ายล่ม</option>
+                                    <option value="POWER_FAILURE">ไฟฟ้าขัดข้อง</option>
+                                    <option value="WEAR_TEAR">อุปกรณ์เสื่อมสภาพ</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">ผู้แจ้งเหตุ</label>
+                                <input type="text" class="form-control" id="maint-reporter" value="จพง.ไอทีสถิติจังหวัด" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn" style="width: 100%; justify-content: center;"><i class="fa-solid fa-paper-plane"></i> ส่งคำแจ้งเหตุและเปิดตั๋วใบงาน</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3 style="font-size: 15px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 15px;">
+                        <i class="fa-solid fa-clock-rotate-left"></i> สถานะใบงานล่าสุด (Tickets Status)
+                    </h3>
+                    <div class="ticket-list" id="ticket-list-body">
+                        <!-- JS populated tickets -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PDPA REQUEST TAB -->
+        <div id="request-tab" class="tab-content">
+            <div class="dashboard-layout-2col">
+                <div class="card">
+                    <h3 style="font-size: 15px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 15px;">
+                        <i class="fa-solid fa-file-invoice"></i> ส่งคำร้องขอดาวน์โหลดภาพย้อนหลัง (PDPA Compliance)
+                    </h3>
+                    <form onsubmit="submitVideoRequest(event)">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">ผู้ยื่นคำร้อง *</label>
+                                <input type="text" class="form-control" id="req-name" placeholder="ชื่อ-นามสกุล / ตำแหน่ง" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">หน่วยงาน *</label>
+                                <input type="text" class="form-control" id="req-agency" placeholder="เช่น สภ.เมืองสระบุรี" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">หมายเลขคดี / รหัสแจ้งเหตุ</label>
+                                <input type="text" class="form-control" id="req-case" placeholder="คดีอาญาที่... (ถ้ามี)">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">กล้องที่ต้องการบันทึกข้อมูล *</label>
+                                <select class="form-select" id="req-camera" required>
+                                    <option value="SRI-1901-LA190101-0001">SRI-1901-LA190101-0001 - แยกโต้รุ่งสระบุรี</option>
+                                    <option value="SRI-1901-LA190101-0002">SRI-1901-LA190101-0002 - หน้าสภ.เมืองสระบุรี</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">เวลาเริ่มต้นบันทึก *</label>
+                                <input type="datetime-local" class="form-control" id="req-start" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">เวลาสิ้นสุดบันทึก *</label>
+                                <input type="datetime-local" class="form-control" id="req-end" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">เหตุผลประกอบทางกฎหมาย (ระบุเป็นลายลักษณ์อักษร) *</label>
+                            <textarea class="form-control" id="req-reason" rows="3" placeholder="เพื่อประกอบการสืบสวนคดีโจรกรรมในบริเวณสี่แยกดังกล่าว" required></textarea>
+                        </div>
+                        <button type="submit" class="btn" style="width: 100%; justify-content: center;"><i class="fa-solid fa-gavel"></i> ส่งตรวจสอบคำร้องและบันทึกประวัติ</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3 style="font-size: 15px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 15px;">
+                        <i class="fa-solid fa-list-check"></i> บันทึกประวัติการตรวจสอบข้อมูล (Audit Log Dashboard)
+                    </h3>
+                    <div class="audit-list" id="audit-log-body">
+                        <!-- JS populated logs -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL: ADD CAMERA -->
+    <div class="modal-overlay" id="add-camera-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>ลงทะเบียนกล้อง CCTV ใหม่รายจุด</h3>
+                <button class="close-modal" onclick="closeAddCameraModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-camera-form" onsubmit="submitAddCamera(event)">
+                    <h4 style="font-size: 13px; color: var(--color-cyan); margin-bottom: 12px; text-transform: uppercase;">ข้อมูลอุปกรณ์</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">ซีเรียลนัมเบอร์ (Serial Number) *</label>
+                            <input type="text" class="form-control" id="add-sn" placeholder="เช่น DH-782194" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">MAC Address</label>
+                            <input type="text" class="form-control" id="add-mac" placeholder="00:1A:2B:3C:4D:5E">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">ยี่ห้อกล้อง *</label>
+                            <select class="form-select" id="add-brand" required>
+                                <option value="Hikvision">Hikvision</option>
+                                <option value="Dahua">Dahua</option>
+                                <option value="Axis">Axis</option>
+                                <option value="Bosch">Bosch</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ประเภทกล้อง *</label>
+                            <select class="form-select" id="add-type" required>
+                                <option value="BULLET">BULLET (ทรงกระบอก)</option>
+                                <option value="PTZ">PTZ (หมุนส่ายก้มเงย)</option>
+                                <option value="DOME">DOME (โดม)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <h4 style="font-size: 13px; color: var(--color-cyan); margin-top: 15px; margin-bottom: 12px; text-transform: uppercase;">พิกัดและมุมส่อง</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">ละติจูด (Latitude) *</label>
+                            <input type="number" step="any" class="form-control" id="add-lat" value="14.529" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ลองจิจูด (Longitude) *</label>
+                            <input type="number" step="any" class="form-control" id="add-lng" value="100.913" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">ทิศทางการหัน (Azimuth 0-360) *</label>
+                            <input type="number" class="form-control" id="add-azimuth" value="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">มุมกล้อง FOV (องศา)</label>
+                            <input type="number" class="form-control" id="add-fov" value="90">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ชื่อจุดติดตั้ง / สถานที่อ้างอิง *</label>
+                        <input type="text" class="form-control" id="add-name" placeholder="เช่น ห้าแยกปากเพรียว เสาที่ 2" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">อำเภอ *</label>
+                            <select class="form-select" id="add-district" required>
+                                <option value="1901">อำเภอเมืองสระบุรี</option>
+                                <option value="1902">อำเภอแก่งคอย</option>
+                                <option value="1903">อำเภอหนองแค</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ประเภทพื้นที่ตั้งจุดเสี่ยง *</label>
+                            <select class="form-select" id="add-point-type" required>
+                                <option value="ACCIDENT_RISK">จุดเสี่ยงอุบัติเหตุ</option>
+                                <option value="CRIME_RISK">จุดเสี่ยงอาชญากรรม</option>
+                                <option value="INTERSECTION">ทางแยกสำคัญ</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAddCameraModal()">ยกเลิก</button>
+                <button class="btn" form="add-camera-form" type="submit">บันทึกสินทรัพย์</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: BULK IMPORT -->
+    <div class="modal-overlay" id="bulk-import-modal">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>นำเข้าข้อมูลกล้องแบบ Bulk (Excel/CSV)</h3>
+                <button class="close-modal" onclick="closeBulkImportModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="text-align: center; padding: 30px;">
+                <i class="fa-solid fa-file-excel" style="font-size: 48px; color: var(--color-cyan); margin-bottom: 15px;"></i>
+                <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+                    ดาวน์โหลดต้นแบบฟอร์มกรอกข้อมูล CCTV ของจังหวัดสระบุรี จากนั้นอัปโหลดไฟล์เข้าระบบเพื่อบันทึกพิกัดแบบชุด
+                </p>
+                <a href="#" style="color: var(--color-cyan); font-size: 12px; display: inline-block; margin-bottom: 20px; text-decoration: underline;"><i class="fa-solid fa-download"></i> ดาวน์โหลดเทมเพลต Excel (.xlsx)</a>
+                
+                <div style="border: 2px dashed rgba(0, 242, 254, 0.2); border-radius: 8px; padding: 25px; cursor: pointer; transition: var(--transition-smooth);" onmouseover="this.style.borderColor='var(--color-cyan)'" onmouseout="this.style.borderColor='rgba(0, 242, 254, 0.2)'" onclick="simulateFileUpload()">
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 24px; color: var(--text-secondary); margin-bottom: 8px;"></i>
+                    <p style="font-size: 12px; font-weight: 500;">คลิกที่นี่เพื่อเลือกไฟล์อัปโหลด</p>
+                    <span style="font-size: 10px; color: var(--text-secondary);">รองรับไฟล์ Excel, CSV ขนาดไม่เกิน 10MB</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS for Map -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script>
+        // State Management
+        let map;
+        let mapMarkers = [];
+        let canvasAnimationId = null;
+        
+        let cameras = [
+            { id: "SRI-1901-LA190101-0001", sn: "HK-89124-XYZ", name: "สี่แยกตลาดโต้รุ่ง สระบุรี", owner: "เทศบาลเมืองสระบุรี", brand: "Hikvision", model: "DS-2CD21", type: "BULLET", lat: 14.5272, lng: 100.9125, azimuth: 120, status: "ONLINE", pointType: "INTERSECTION", district: "1901" },
+            { id: "SRI-1901-LA190101-0002", sn: "DH-99120-ABC", name: "หน้า สภ.เมืองสระบุรี", owner: "เทศบาลเมืองสระบุรี", brand: "Dahua", model: "DH-IPC", type: "PTZ", lat: 14.5321, lng: 100.9152, azimuth: 45, status: "ONLINE", pointType: "CRIME_RISK", district: "1901" },
+            { id: "SRI-1901-LA190101-0003", sn: "AX-22041-Q", name: "สถานีรถไฟสระบุรี", owner: "เทศบาลเมืองสระบุรี", brand: "Axis", model: "Q60-PTZ", type: "DOME", lat: 14.5235, lng: 100.9082, azimuth: 270, status: "OFFLINE", pointType: "ACCIDENT_RISK", district: "1901" },
+            { id: "SRI-1902-LA190201-0001", sn: "HK-44211-M", name: "หน้า รร.แก่งคอย", owner: "เทศบาลเมืองแก่งคอย", brand: "Hikvision", model: "DS-2CD33", type: "BULLET", lat: 14.5912, lng: 100.9921, azimuth: 180, status: "ONLINE", pointType: "ACCIDENT_RISK", district: "1902" },
+            { id: "SRI-1909-LA190901-0001", sn: "BS-88124-Z", name: "สี่แยกวัดพระพุทธบาท", owner: "เทศบาลเมืองพระพุทธบาท", brand: "Bosch", model: "FLEXIDOME", type: "PTZ", lat: 14.7312, lng: 100.7815, azimuth: 90, status: "ONLINE", pointType: "INTERSECTION", district: "1909" }
+        ];
+
+        let tickets = [
+            { id: "TKT-20260805-0001", camera: "SRI-1901-LA190101-0003", issue: "สัญญาณกล้องสูญหาย (Link Down)", date: "05 ส.ค. 2569", status: "OPEN" },
+            { id: "TKT-20260802-0012", camera: "SRI-1902-LA190201-0001", issue: "ภาพมืดไม่แสดงผลอินฟราเรดตอนกลางคืน", date: "02 ส.ค. 2569", status: "IN_PROGRESS" }
+        ];
+
+        let auditLogs = [
+            { user: "pol_somchai", action: "VIEW_LIVE", target: "SRI-1901-LA190101-0001", time: "23:38:40", date: "2026-08-05", ip: "192.168.10.12", reason: "สืบสวนคดีเฉี่ยวชนทางแยก" },
+            { user: "admin_stat", action: "IMPORT_ASSET", target: "Excel (120 cams)", time: "22:15:02", date: "2026-08-05", ip: "10.0.4.15", reason: "นำเข้าข้อมูลเริ่มต้นของ อปท. เมืองสระบุรี" }
+        ];
+
+        // Initialize Map & Page
+        window.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            populateRegistryTable();
+            populateTickets();
+            populateAuditLogs();
+        });
+
+        function initMap() {
+            // Center of Saraburi Province
+            map = L.map('gis-map').setView([14.529, 100.913], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            renderMapMarkers();
+        }
+
+        function renderMapMarkers() {
+            // Clear existing markers
+            mapMarkers.forEach(m => map.removeLayer(m));
+            mapMarkers = [];
+
+            // Add new markers
+            cameras.forEach(cam => {
+                let markerColorClass = "leaflet-marker-online";
+                if (cam.status === "OFFLINE") markerColorClass = "leaflet-marker-offline";
+                else if (cam.status === "MAINTENANCE") markerColorClass = "leaflet-marker-ma";
+
+                let customIcon = L.divIcon({
+                    className: `leaflet-marker ${markerColorClass}`,
+                    iconSize: [12, 12]
+                });
+
+                let marker = L.marker([cam.lat, cam.lng], { icon: customIcon }).addTo(map);
+                marker.bindTooltip(cam.name, { permanent: false, direction: "top" });
+                
+                // Click handler
+                marker.on('click', () => {
+                    openCameraDetailPanel(cam);
+                });
+
+                // Store reference
+                marker.cameraData = cam;
+                mapMarkers.push(marker);
+            });
+        }
+
+        // Switch Tab UI
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+
+            // Header title updates
+            const titles = {
+                'gis-map-tab': 'แผนที่ GIS บูรณาการและจุดติดตั้งกล้องสระบุรี',
+                'dashboard-tab': 'แดชบอร์ดสรุปผลการวิเคราะห์ระดับจังหวัดสระบุรี',
+                'registry-tab': 'ระบบทะเบียนกลางบัญชีรายชื่อกล้องและโครงการจัดซื้อ',
+                'maintenance-tab': 'ระบบสั่งงานซ่อมบำรุงและรายงานชำรุดอุปกรณ์',
+                'request-tab': 'ระบบคำร้องขอเข้าชมและรับมอบไฟล์ภาพ (PDPA Compliance)'
+            };
+            document.getElementById('header-title-text').innerText = titles[tabId];
+
+            if (tabId === 'gis-map-tab') {
+                setTimeout(() => { map.invalidateSize(); }, 200);
+            }
+        }
+
+        // Map Panel Handling
+        function openCameraDetailPanel(cam) {
+            document.getElementById('panel-cam-id').innerText = cam.id;
+            document.getElementById('panel-cam-coords').innerText = `Coords: ${cam.lat.toFixed(6)}, ${cam.lng.toFixed(6)}`;
+            document.getElementById('panel-cam-name').innerText = `จุดติดตั้ง: ${cam.name}`;
+            document.getElementById('panel-cam-owner').innerText = `หน่วยงานรับผิดชอบ: ${cam.owner}`;
+            document.getElementById('panel-cam-brand').innerText = `${cam.brand} ${cam.model}`;
+            document.getElementById('panel-cam-type').innerText = cam.type;
+            
+            const statusBadge = document.getElementById('panel-cam-status');
+            statusBadge.className = 'badge';
+            statusBadge.classList.add(cam.status === 'ONLINE' ? 'badge-online' : (cam.status === 'OFFLINE' ? 'badge-offline' : 'badge-ma'));
+            statusBadge.innerText = cam.status;
+
+            document.getElementById('panel-cam-azimuth').innerText = `${cam.azimuth}°`;
+
+            // Open panel
+            document.getElementById('camera-detail-panel').style.display = 'flex';
+
+            // Start simulated stream animation
+            startSimulatedVideo();
+            
+            // Add audit log
+            addAuditLogEntry('VIEW_LIVE', cam.id, 'เปิดสตรีมดูภาพสดแผนที่ GIS');
+        }
+
+        function closeCameraDetailPanel() {
+            document.getElementById('camera-detail-panel').style.display = 'none';
+            if (canvasAnimationId) {
+                cancelAnimationFrame(canvasAnimationId);
+            }
+        }
+
+        function filterMapMarkers() {
+            const district = document.getElementById('map-filter-district').value;
+            const onlineChk = document.getElementById('status-online-chk').checked;
+            const offlineChk = document.getElementById('status-offline-chk').checked;
+            const maChk = document.getElementById('status-ma-chk').checked;
+            
+            const accidentChk = document.getElementById('type-accident-chk').checked;
+            const crimeChk = document.getElementById('type-crime-chk').checked;
+            const trafficChk = document.getElementById('type-traffic-chk').checked;
+
+            mapMarkers.forEach(m => {
+                const cam = m.cameraData;
+                let visible = true;
+
+                if (district !== 'ALL' && cam.district !== district) visible = false;
+                
+                if (cam.status === 'ONLINE' && !onlineChk) visible = false;
+                if (cam.status === 'OFFLINE' && !offlineChk) visible = false;
+                if (cam.status === 'MAINTENANCE' && !maChk) visible = false;
+
+                if (cam.pointType === 'ACCIDENT_RISK' && !accidentChk) visible = false;
+                if (cam.pointType === 'CRIME_RISK' && !crimeChk) visible = false;
+                if (cam.pointType === 'INTERSECTION' && !trafficChk) visible = false;
+
+                if (visible) {
+                    m.addTo(map);
+                } else {
+                    map.removeLayer(m);
+                }
+            });
+        }
+
+        // Live view video animation on Canvas
+        function startSimulatedVideo() {
+            const canvas = document.getElementById('camera-live-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 300;
+            canvas.height = 170;
+
+            function draw() {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw grid lines
+                ctx.strokeStyle = 'rgba(0, 242, 254, 0.1)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < canvas.width; i += 30) {
+                    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+                }
+                for (let j = 0; j < canvas.height; j += 30) {
+                    ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
+                }
+
+                // Draw circles or shapes to simulate cars moving
+                const time = Date.now() * 0.002;
+                ctx.fillStyle = 'rgba(0, 242, 254, 0.7)';
+                ctx.beginPath();
+                ctx.arc(150 + Math.sin(time) * 80, 85 + Math.cos(time) * 30, 8, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = 'rgba(0, 255, 160, 0.7)';
+                ctx.beginPath();
+                ctx.arc(150 + Math.cos(time + 1) * 80, 85 + Math.sin(time + 1) * 40, 10, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Blinking Text
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px Sarabun';
+                ctx.fillText(`CAM DATA: RTSP_TO_WEBRTC_GW`, 10, 25);
+                ctx.fillText(`FPS: 30 | Bitrate: 2,048 kbps`, 10, 155);
+
+                canvasAnimationId = requestAnimationFrame(draw);
+            }
+            
+            if (canvasAnimationId) cancelAnimationFrame(canvasAnimationId);
+            draw();
+        }
+
+        // Dashboard Selector
+        function setDashboardLevel(level) {
+            document.querySelectorAll('.level-btn').forEach(btn => btn.classList.remove('active'));
+            
+            const total = document.getElementById('stat-total-cams');
+            const uptime = document.getElementById('stat-uptime');
+            const failed = document.getElementById('stat-failed');
+            const budget = document.getElementById('stat-budget');
+            const title = document.getElementById('chart-main-title');
+
+            if (level === 'province') {
+                document.getElementById('lvl-p-btn').classList.add('active');
+                total.innerText = "10,420 ตัว";
+                uptime.innerText = "97.85%";
+                failed.innerText = "224 ตัว";
+                budget.innerText = "104.2 ล้านบาท";
+                title.innerText = "สถิติการใช้งานกล้องจำแนกรายอำเภอ (ตัว)";
+            } else if (level === 'district') {
+                document.getElementById('lvl-d-btn').classList.add('active');
+                total.innerText = "4,250 ตัว";
+                uptime.innerText = "98.40%";
+                failed.innerText = "68 ตัว";
+                budget.innerText = "42.5 ล้านบาท";
+                title.innerText = "อัตราความคุ้มค่าเฉลี่ยเปรียบเทียบต่อจุด (บาท/กล้อง)";
+            } else {
+                document.getElementById('lvl-l-btn').classList.add('active');
+                total.innerText = "120 ตัว";
+                uptime.innerText = "95.12%";
+                failed.innerText = "12 ตัว";
+                budget.innerText = "1.8 ล้านบาท";
+                title.innerText = "สถิติใบงานซ่อมบำรุงรายหน่วยงาน";
+            }
+        }
+
+        // Camera Registry List
+        function populateRegistryTable() {
+            const tbody = document.getElementById('registry-table-body');
+            tbody.innerHTML = '';
+
+            cameras.forEach(cam => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight: 600; color: var(--color-cyan);">${cam.id}</td>
+                    <td>${cam.sn}</td>
+                    <td><strong>${cam.name}</strong></td>
+                    <td><span class="dla-badge">${cam.owner}</span></td>
+                    <td>${cam.brand} / ${cam.model}</td>
+                    <td>${cam.type}</td>
+                    <td><span class="badge ${cam.status === 'ONLINE' ? 'badge-online' : 'badge-offline'}">${cam.status}</span></td>
+                    <td style="display: flex; gap: 8px;">
+                        <button class="btn btn-outline" style="padding: 6px 12px; font-size: 11px;" onclick="openCameraOnMap('${cam.id}')"><i class="fa-solid fa-map"></i> ดูแผนที่</button>
+                        <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;" onclick="reportIncidentFromRegistry('${cam.id}')"><i class="fa-solid fa-wrench"></i> แจ้งเสีย</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterRegistryTable() {
+            const search = document.getElementById('registry-search').value.toLowerCase();
+            const rows = document.querySelectorAll('#registry-table-body tr');
+
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(search) ? '' : 'none';
+            });
+        }
+
+        function openCameraOnMap(camId) {
+            const cam = cameras.find(c => c.id === camId);
+            if (cam) {
+                switchTab('gis-map-tab');
+                map.setView([cam.lat, cam.lng], 16);
+                openCameraDetailPanel(cam);
+            }
+        }
+
+        // Modals Management
+        function openAddCameraModal() {
+            document.getElementById('add-camera-modal').style.display = 'flex';
+        }
+        function closeAddCameraModal() {
+            document.getElementById('add-camera-modal').style.display = 'none';
+        }
+        function openBulkImportModal() {
+            document.getElementById('bulk-import-modal').style.display = 'flex';
+        }
+        function closeBulkImportModal() {
+            document.getElementById('bulk-import-modal').style.display = 'none';
+        }
+
+        function submitAddCamera(event) {
+            event.preventDefault();
+            
+            const sn = document.getElementById('add-sn').value;
+            const brand = document.getElementById('add-brand').value;
+            const type = document.getElementById('add-type').value;
+            const lat = parseFloat(document.getElementById('add-lat').value);
+            const lng = parseFloat(document.getElementById('add-lng').value);
+            const name = document.getElementById('add-name').value;
+            const dist = document.getElementById('add-district').value;
+            const pointType = document.getElementById('add-point-type').value;
+
+            const newId = `SRI-${dist}-LA190101-00${cameras.length + 1}`;
+            
+            cameras.push({
+                id: newId,
+                sn: sn,
+                name: name,
+                owner: "สำนักงานจังหวัดสระบุรี",
+                brand: brand,
+                model: "Custom-Install",
+                type: type,
+                lat: lat,
+                lng: lng,
+                azimuth: 0,
+                status: "ONLINE",
+                pointType: pointType,
+                district: dist
+            });
+
+            closeAddCameraModal();
+            populateRegistryTable();
+            renderMapMarkers();
+            addAuditLogEntry('IMPORT_ASSET', newId, 'ลงทะเบียนกล้อง CCTV รายจุดผ่านระบบหน้าบ้าน');
+            alert(`ลงทะเบียนกล้องรหัส ${newId} เรียบร้อยแล้ว หมุดจะปรากฏบนแผนที่ GIS ทันที`);
+        }
+
+        function simulateFileUpload() {
+            alert("ระบบจำลองการประมวลผล Bulk Upload: คัดลอกข้อมูล 50 รายการจากเทมเพลต Excel... ตรวจสอบพิกัดภูมิศาสตร์เชิงพื้นที่สำเร็จ");
+            
+            for (let i = 1; i <= 5; i++) {
+                cameras.push({
+                    id: `SRI-1901-LA190101-008${i}`,
+                    sn: `BULK-256908-${i}`,
+                    name: `จุดบูรณาการนำเข้าชุดที่ ${i}`,
+                    owner: "สำนักงานจังหวัดสระบุรี",
+                    brand: "Hikvision",
+                    model: "DS-Bulk",
+                    type: "FIXED",
+                    lat: 14.529 + (Math.random() - 0.5) * 0.02,
+                    lng: 100.913 + (Math.random() - 0.5) * 0.02,
+                    azimuth: 90,
+                    status: "ONLINE",
+                    pointType: "INTERSECTION",
+                    district: "1901"
+                });
+            }
+
+            closeBulkImportModal();
+            populateRegistryTable();
+            renderMapMarkers();
+            addAuditLogEntry('IMPORT_ASSET', 'Excel Import', 'นำเข้ากล้อง CCTV แบบ Bulk สำเร็จ (5 รายการใหม่จำลอง)');
+        }
+
+        // Maintenance workflow implementation
+        function populateTickets() {
+            const container = document.getElementById('ticket-list-body');
+            container.innerHTML = '';
+
+            tickets.forEach(t => {
+                const item = document.createElement('div');
+                item.className = 'ticket-item';
+                
+                let badgeClass = 'badge-online';
+                if (t.status === 'OPEN') badgeClass = 'badge-offline';
+                else if (t.status === 'IN_PROGRESS') badgeClass = 'badge-ma';
+
+                item.innerHTML = `
+                    <div class="ticket-main">
+                        <h5>ใบงานหมายเลข: ${t.id}</h5>
+                        <p>กล้อง: <strong>${t.camera}</strong> | ชำรุด: ${t.issue}</p>
+                    </div>
+                    <div class="ticket-meta">
+                        <span class="badge ${badgeClass}">${t.status}</span>
+                        <span style="font-size: 11px; color: var(--text-secondary);">${t.date}</span>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function submitMaintenanceForm(event) {
+            event.preventDefault();
+            const camId = document.getElementById('maint-camera-id').value;
+            const issue = document.getElementById('maint-issue').value;
+            const reporter = document.getElementById('maint-reporter').value;
+
+            const tktId = `TKT-20260805-00${tickets.length + 1}`;
+            tickets.unshift({
+                id: tktId,
+                camera: camId,
+                issue: issue,
+                date: "05 ส.ค. 2569",
+                status: "OPEN"
+            });
+
+            // Update camera status in list
+            const targetCam = cameras.find(c => c.id === camId);
+            if (targetCam) targetCam.status = 'MAINTENANCE';
+
+            populateTickets();
+            populateRegistryTable();
+            renderMapMarkers();
+            
+            document.getElementById('maint-issue').value = '';
+            addAuditLogEntry('UPDATE_ASSET', camId, 'แจ้งปัญหากล้องเสียและจัดตั้งใบสั่งงานซ่อมบำรุง');
+            alert(`สร้างใบแจ้งซ่อมเลขที่ ${tktId} และส่งต่อไปยังช่าง MA แล้ว`);
+        }
+
+        function reportIncidentFromRegistry(camId) {
+            switchTab('maintenance-tab');
+            document.getElementById('maint-camera-id').value = camId;
+            document.getElementById('maint-issue').focus();
+        }
+
+        function openReportIncidentFromPanel() {
+            const camId = document.getElementById('panel-cam-id').innerText;
+            closeCameraDetailPanel();
+            reportIncidentFromRegistry(camId);
+        }
+
+        // Video retrieval / Playback PDPA workflow
+        function submitVideoRequest(event) {
+            event.preventDefault();
+            const name = document.getElementById('req-name').value;
+            const agency = document.getElementById('req-agency').value;
+            const camId = document.getElementById('req-camera').value;
+            const start = document.getElementById('req-start').value;
+            const end = document.getElementById('req-end').value;
+            const reason = document.getElementById('req-reason').value;
+
+            addAuditLogEntry('VIEW_PLAYBACK', camId, `ดาวน์โหลดวิดีโอย้อนหลังโดย ${name} (${agency}) เหตุผล: ${reason}`);
+            
+            alert(`ใบเสนอขออนุมัติไฟล์วิดีโอย้อนหลังถูกส่งไปยังผู้ว่าฯ/ผู้ดูแลจังหวัดแล้ว ประวัติความปลอดภัยถูกระบุลงใน Immutable Audit Log เรียบร้อย`);
+            
+            document.getElementById('req-name').value = '';
+            document.getElementById('req-agency').value = '';
+            document.getElementById('req-case').value = '';
+            document.getElementById('req-reason').value = '';
+        }
+
+        function populateAuditLogs() {
+            const container = document.getElementById('audit-log-body');
+            container.innerHTML = '';
+
+            auditLogs.forEach(log => {
+                const item = document.createElement('div');
+                item.className = 'audit-item';
+                item.innerHTML = `
+                    <div style="flex-grow: 1;">
+                        <strong>${log.username || log.user}</strong> ทำการ <code>${log.action}</code> บนเป้าหมาย: ${log.target}
+                        <div class="audit-reason">เหตุผล: ${log.reason}</div>
+                    </div>
+                    <div style="text-align: right; font-size: 11px; color: var(--text-secondary);">
+                        <div>${log.date} ${log.time}</div>
+                        <div>IP: ${log.ip}</div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function addAuditLogEntry(action, target, reason) {
+            auditLogs.unshift({
+                user: "admin_stat",
+                action: action,
+                target: target,
+                time: new Date().toTimeString().split(' ')[0],
+                date: new Date().toISOString().split('T')[0],
+                ip: "10.0.4.15",
+                reason: reason
+            });
+            populateAuditLogs();
+        }
+
+        // Toggle Presentation Mode
+        function togglePresentationMode() {
+            const main = document.querySelector('main');
+            main.classList.toggle('presentation-active');
+            
+            const btn = document.getElementById('presentation-btn');
+            if (main.classList.contains('presentation-active')) {
+                btn.innerHTML = `<i class="fa-solid fa-compress"></i> ออกจากโหมดนำเสนอ`;
+                btn.classList.add('close-presentation-btn');
+            } else {
+                btn.innerHTML = `<i class="fa-solid fa-display"></i> โหมดนำเสนอ (จอภาพ)`;
+                btn.classList.remove('close-presentation-btn');
+            }
+        }
+    </script>
+</body>
+</html>

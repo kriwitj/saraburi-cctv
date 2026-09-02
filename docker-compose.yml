@@ -1,0 +1,72 @@
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    container_name: srb-cctv-db
+    restart: always
+    environment:
+      POSTGRES_USER: srb_admin
+      POSTGRES_PASSWORD: srb_secure_password_2569
+      POSTGRES_DB: srb_cctv_registry
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d
+    networks:
+      - cctv-net
+
+  media:
+    image: alexxit/go2rtc:latest
+    container_name: srb-cctv-media
+    restart: always
+    ports:
+      - "1984:1984" # API / Web UI
+      - "8554:8554" # RTSP Server
+      - "8555:8555/tcp" # WebRTC TCP
+      - "8555:8555/udp" # WebRTC UDP
+    volumes:
+      - ./media-config/go2rtc.yaml:/config/go2rtc.yaml
+    networks:
+      - cctv-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: srb-cctv-backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://srb_admin:srb_secure_password_2569@db:5432/srb_cctv_registry
+      - MEDIA_SERVER_API=http://media:1984
+      - JWT_SECRET=srb_jwt_secret_key_2026_super_secure
+      - ENVIRONMENT=development
+    depends_on:
+      - db
+      - media
+    networks:
+      - cctv-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: srb-cctv-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api/v1
+      - VITE_MEDIA_URL=http://localhost:1984
+    depends_on:
+      - backend
+    networks:
+      - cctv-net
+
+volumes:
+  pgdata:
+
+networks:
+  cctv-net:
+    driver: bridge

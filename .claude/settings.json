@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(export MSYS_NO_PATHCONV=1)",
+      "Bash(docker exec *)",
+      "Read(//d//**)",
+      "Bash(find 'C:\\\\Users\\\\Kriwit' -iname *chromium-cli*)"
+    ]
+  }
+}
