@@ -17,9 +17,9 @@ webrtc:
     # - 10.0.0.100
 
 # รายการสตรีมนำร่องสำหรับจำลองระบบ (Pilot Streams)
-streams:
+streams: {}
   # จำลองด้วยวิดีโอตัวอย่าง (Test Stream)
-  srb_test_stream_1: rtsp://localhost:8554/srb_test_stream_1
+  # srb_test_stream_1: rtsp://localhost:8554/srb_test_stream_1
   # ตัวอย่างการระบุกล้องจริง
   # srb_muang_001: rtsp://admin:pass1234@192.168.1.100:554/h264Preview_01_main
 

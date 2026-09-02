@@ -62,6 +62,8 @@ cp frontend/.env.example frontend/.env
 * เพิ่ม IP สาธารณะจริงของเซิร์ฟเวอร์ในส่วน `webrtc.candidates` (ปลดคอมเมนต์บรรทัด `# - 10.0.0.100` แล้วใส่ IP จริง)
 * ปรับ/ลบรายการใน `streams:` ให้เหลือเฉพาะกล้องจริงที่จะเชื่อมต่อ (ลบ `srb_test_stream_1` ตัวอย่างออก)
 
+> ⚠️ ไฟล์นี้ไม่ได้อ่านค่าจาก `.env` (go2rtc mount เป็นไฟล์ yaml ตรง ๆ ไม่รองรับ `${VAR}` เหมือน docker-compose) เมื่อเริ่มใส่ URL/รหัสผ่านกล้องจริงลงใน `streams:` ให้เพิ่ม `media-config/go2rtc.yaml` เข้า `.gitignore` ก่อน commit เพื่อไม่ให้ credentials กล้องหลุดขึ้น git
+
 ### 3. ตั้งค่า Reverse Proxy + HTTPS ด้วย Traefik (แนะนำ)
 โปรเจกต์นี้มีไฟล์ `docker-compose.prod.yml` เตรียมไว้สำหรับเชื่อมต่อกับ **Traefik ตัวหลักที่รันอยู่แล้วบนเซิร์ฟเวอร์** (ใช้ pattern เดียวกับแอปอื่น ๆ ที่ใช้ network `proxy_net` ร่วมกัน) โดยไม่ต้องรัน Traefik ซ้ำอีกชุด
 
