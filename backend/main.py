@@ -4,10 +4,12 @@ import io
 from typing import List, Optional
 from datetime import datetime, timedelta
 import pandas as pd
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query
-from fastapi.responses import Response
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, Request
+from fastapi.responses import Response, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from starlette.middleware.sessions import SessionMiddleware
+from authlib.integrations.starlette_client import OAuth, OAuthError
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
@@ -168,12 +170,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# JWT Configuration
+# ต้องมี SessionMiddleware เพื่อให้ Authlib เก็บ state/nonce ของ OIDC flow ระหว่างการ redirect ไป Keycloak
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "srb_session_secret_key_2026"))
+
+# JWT Configuration (โทเค็นภายในระบบ ออกให้หลัง Keycloak ยืนยันตัวตนสำเร็จ)
 SECRET_KEY = os.getenv("JWT_SECRET", "srb_jwt_secret_key_2026_super_secure")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
+oauth2_scheme = HTTPBearer()
+
+# Keycloak (OIDC) Configuration
+KEYCLOAK_ISSUER = os.getenv("KEYCLOAK_ISSUER", "https://sso.example.org/realms/saraburi-cctv")
+KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "saraburi-cctv-backend")
+KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "")
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:8000")
+
+oauth = OAuth()
+oauth.register(
+    name="keycloak",
+    server_metadata_url=f"{KEYCLOAK_ISSUER}/.well-known/openid-configuration",
+    client_id=KEYCLOAK_CLIENT_ID,
+    client_secret=KEYCLOAK_CLIENT_SECRET,
+    client_kwargs={"scope": "openid profile email"},
+)
 
 # Auth Helpers
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -186,14 +207,17 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> models.User:
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> models.User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="ไม่สามารถยืนยันตัวตนของผู้ใช้งานได้",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
@@ -214,21 +238,36 @@ def verify_super_admin(current_user: models.User = Depends(get_current_user)):
         )
     return current_user
 
-# --- AUTH ENDPOINT ---
-@app.post("/api/v1/auth/login", response_model=schemas.Token)
-def login_for_access_token(form_data: schemas.LoginRequest, db: Session = Depends(get_db)):
-    user = crud.get_user_by_username(db, username=form_data.username)
-    if not user or not crud.verify_password(form_data.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+# --- AUTH ENDPOINTS (Keycloak SSO) ---
+@app.get("/api/v1/auth/keycloak/login")
+async def keycloak_login(request: Request):
+    redirect_uri = f"{BACKEND_BASE_URL}/api/v1/auth/keycloak/callback"
+    return await oauth.keycloak.authorize_redirect(request, redirect_uri)
+
+@app.get("/api/v1/auth/keycloak/callback")
+async def keycloak_callback(request: Request, db: Session = Depends(get_db)):
+    try:
+        token = await oauth.keycloak.authorize_access_token(request)
+    except OAuthError:
+        return RedirectResponse(f"{FRONTEND_BASE_URL}/login?error=sso_failed")
+
+    claims = token.get("userinfo") or await oauth.keycloak.parse_id_token(request, token)
+    keycloak_username = claims.get("preferred_username") or claims.get("email")
+    if not keycloak_username:
+        return RedirectResponse(f"{FRONTEND_BASE_URL}/login?error=sso_failed")
+
+    # ผู้ใช้ต้องถูกลงทะเบียนไว้ในระบบล่วงหน้า (โดยผู้ดูแลระบบ) เพื่อผูก role/local_gov_id กับบัญชี Keycloak
+    user = crud.get_user_by_username(db, username=keycloak_username)
+    if not user:
+        return RedirectResponse(f"{FRONTEND_BASE_URL}/login?error=unregistered")
+    if not user.is_active:
+        return RedirectResponse(f"{FRONTEND_BASE_URL}/login?error=inactive")
+
     access_token = create_access_token(
-        data={"sub": user.username, "role": user.role}, expires_delta=access_token_expires
+        data={"sub": user.username, "role": user.role},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return RedirectResponse(f"{FRONTEND_BASE_URL}/auth/callback?token={access_token}")
 
 @app.get("/api/v1/auth/me", response_model=schemas.UserOut)
 def read_users_me(current_user: models.User = Depends(get_current_user)):
@@ -752,9 +791,12 @@ def register_new_camera(camera: schemas.CameraAssetCreate, db: Session = Depends
     if current_user.role == "LOCAL_GOV_STAFF":
         camera.local_gov_id = current_user.local_gov_id
 
+    # id ของกล้องสร้างโดยระบบเสมอ ไม่รับค่าจากผู้ใช้งาน (ถ้ามีส่งมาจะถูกเขียนทับ)
+    camera.id = crud.generate_camera_id(db, camera.local_gov_id)
+
     db_cam = crud.create_camera(db, camera)
     crud.create_audit_log(
-        db, 
+        db,
         schemas.AuditLogCreate(action="CREATE_CAMERA", target_type="CAMERA", target_id=camera.id, client_ip="127.0.0.1", reason="ลงทะเบียนกล้อง"),
         username=current_user.username, user_id=current_user.id
     )
@@ -837,15 +879,14 @@ def import_cameras_bulk(
         brand_name = cell(row, "brand")
         category = cell(row, "category")
         raw_id = row.get("id")
-        requested_id = str(raw_id).strip() if not pd.isna(raw_id) and str(raw_id).strip() else None
+        provided_id = str(raw_id).strip() if not pd.isna(raw_id) and str(raw_id).strip() else None
+        # id ต้องตรงรูปแบบที่ระบบสร้างให้เท่านั้นจึงจะใช้อ้างอิงแถวเดิมเพื่ออัปเดต ถ้าไม่ตรงรูปแบบถือว่าไม่ได้ระบุ id
+        # (ระบบจะสร้าง id ใหม่ให้อัตโนมัติแทน) เพื่อป้องกันผู้ใช้กรอก id เองในไฟล์ import
+        requested_id = provided_id if provided_id and crud.CAMERA_ID_PATTERN.match(provided_id) else None
         existing_cam = db.query(models.CameraAsset).filter(models.CameraAsset.id == requested_id).first() if requested_id else None
 
         if existing_cam and current_user.role == "LOCAL_GOV_STAFF" and existing_cam.local_gov_id != current_user.local_gov_id:
             errors.append(schemas.RowErrorDetail(row=row_num, column="id", error=f"ไม่มีสิทธิ์แก้ไขกล้องรหัส {requested_id} ของหน่วยงานอื่น"))
-            continue
-
-        if pd.isna(serial) or serial.strip() == "":
-            errors.append(schemas.RowErrorDetail(row=row_num, column="serial_number", error="หมายเลขซีเรียลห้ามเป็นค่าว่าง"))
             continue
 
         try:
@@ -1069,7 +1110,7 @@ def get_province_dashboard_summary(
     elif current_user.role == "DISTRICT_ADMIN":
         district_id = current_user.district_id
 
-    cam_query = db.query(models.CameraAsset)
+    cam_query = db.query(models.CameraAsset).filter(models.CameraAsset.status != "REMOVED")
     if district_id:
         cam_query = cam_query.join(models.LocalGovernment, models.CameraAsset.local_gov_id == models.LocalGovernment.id).filter(models.LocalGovernment.district_id == district_id)
     if local_gov_id:

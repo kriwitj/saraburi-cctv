@@ -68,6 +68,8 @@ export default function GisMap({ currentUser, cameras, handleWatchStream }: GisM
     if (currentUser.role === 'DISTRICT_ADMIN' && cam.district_id !== currentUser.district_id) return false;
     if (currentUser.role === 'LOCAL_GOV_STAFF' && cam.local_gov_id !== currentUser.local_gov_id) return false;
     if (filterLocalGovId && cam.local_gov_id !== filterLocalGovId) return false;
+    // กล้องที่ถูกลบ (REMOVED) ไม่แสดงบนแผนที่ปฏิบัติการ เว้นแต่ผู้ใช้เลือกกรองสถานะ REMOVED โดยตรง
+    if (!filterStatus && cam.status === 'REMOVED') return false;
     if (filterStatus && cam.status !== filterStatus) return false;
     return true;
   }), [cameras, currentUser, filterLocalGovId, filterStatus]);

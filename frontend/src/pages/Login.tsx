@@ -1,44 +1,20 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Shield, Eye, EyeOff } from 'lucide-react';
-import { apiClient, extractErrorMessage } from '../api/client';
+import React from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Shield, LogIn } from 'lucide-react';
+import { API_BASE_URL } from '../api/client';
 
-interface LoginProps {
-  onLoginSuccess: (user: any) => void;
-  addToast: (msg: string, type: 'success' | 'error' | 'warning') => void;
-}
+const ERROR_MESSAGES: Record<string, string> = {
+  sso_failed: 'ไม่สามารถยืนยันตัวตนผ่าน Keycloak ได้ กรุณาลองใหม่อีกครั้ง',
+  unregistered: 'บัญชีนี้ยังไม่ได้ลงทะเบียนในระบบ กรุณาติดต่อผู้ดูแลระบบเพื่อขอสิทธิ์การใช้งาน',
+  inactive: 'บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ',
+};
 
-export default function Login({ onLoginSuccess, addToast }: LoginProps) {
-  const [usernameInput, setUsernameInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const navigate = useNavigate();
+export default function Login() {
+  const [searchParams] = useSearchParams();
+  const error = searchParams.get('error');
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      const tokenRes = await apiClient.post('/auth/login', {
-        username: usernameInput,
-        password: passwordInput,
-      });
-      const token = tokenRes.data.access_token;
-      localStorage.setItem('srb_token', token);
-
-      const meRes = await apiClient.get('/auth/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      onLoginSuccess(meRes.data);
-      navigate('/dashboard');
-      addToast('เข้าสู่ระบบสำเร็จ สิทธิ์: ' + meRes.data.role, 'success');
-    } catch (err: any) {
-      localStorage.removeItem('srb_token');
-      addToast(extractErrorMessage(err, 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง'), 'error');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleKeycloakLogin = () => {
+    window.location.href = `${API_BASE_URL}/auth/keycloak/login`;
   };
 
   return (
@@ -71,48 +47,21 @@ export default function Login({ onLoginSuccess, addToast }: LoginProps) {
 
         <div className="w-1/2 p-12 flex flex-col justify-center">
           <h3 className="text-2xl font-bold text-white mb-2">เข้าสู่ระบบ / Sign In</h3>
-          <p className="text-xs text-slate-400 mb-8">กรุณากรอกรหัสผ่านเพื่อเข้าใช้งานระบบทะเบียนกลางจังหวัด</p>
-          <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-slate-400">ชื่อผู้ใช้งาน (Username)</label>
-              <input
-                type="text"
-                value={usernameInput}
-                onChange={(e) => setUsernameInput(e.target.value)}
-                placeholder="srb_super_admin"
-                className="w-full bg-[#0a0f1d] border border-white/10 rounded-md py-2.5 px-4 text-sm text-white focus:outline-none focus:border-[#00f2fe]"
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-slate-400">รหัสผ่าน (Password)</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="ป้อนรหัสผ่าน"
-                  className="w-full bg-[#0a0f1d] border border-white/10 rounded-md py-2.5 px-4 text-sm text-white focus:outline-none focus:border-[#00f2fe]"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-slate-500"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
+          <p className="text-xs text-slate-400 mb-8">เข้าสู่ระบบทะเบียนกลางจังหวัดผ่านบัญชีผู้ใช้งานกลาง (Keycloak SSO)</p>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="mt-4 w-full bg-gradient-to-r from-[#005BAC] to-[#00AEEF] hover:opacity-90 disabled:opacity-50 text-white font-bold py-3 rounded-md shadow-lg shadow-sky-500/25 transition cursor-pointer text-sm"
-            >
-              {isSubmitting ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบระบบกลาง'}
-            </button>
-          </form>
+          {error && (
+            <div className="mb-6 text-xs bg-red-500/10 border border-red-500/30 text-red-400 rounded-md px-4 py-3">
+              {ERROR_MESSAGES[error] || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง'}
+            </div>
+          )}
+
+          <button
+            onClick={handleKeycloakLogin}
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#005BAC] to-[#00AEEF] hover:opacity-90 text-white font-bold py-3 rounded-md shadow-lg shadow-sky-500/25 transition cursor-pointer text-sm"
+          >
+            <LogIn className="w-4 h-4" />
+            เข้าสู่ระบบด้วย Keycloak
+          </button>
         </div>
       </div>
     </div>

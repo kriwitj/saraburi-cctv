@@ -1,5 +1,6 @@
 # crud.py
 import datetime
+import re
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import bcrypt
@@ -7,15 +8,12 @@ from geoalchemy2.shape import to_shape
 import models
 import schemas
 
+# รูปแบบ id ที่ระบบสร้างให้เอง: SRI-<รหัสอำเภอ>-<รหัสหน่วยงาน>-<เลขรัน 4 หลัก> เช่น SRI-1901-190101-0001
+CAMERA_ID_PATTERN = re.compile(r"^SRI-[A-Za-z0-9]+-[A-Za-z0-9]+-\d{4}$")
+
 # Password Hashing Helpers using direct bcrypt library to avoid passlib compat bugs
 def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    try:
-        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
-    except Exception:
-        return False
 
 # --- USER CRUD ---
 def get_user(db: Session, user_id: int):
@@ -630,9 +628,11 @@ def update_camera(db: Session, camera_id: str, camera: schemas.CameraAssetCreate
     return None
 
 def delete_camera(db: Session, camera_id: str):
+    """Soft delete: ข้อมูลกล้องจะไม่ถูกลบออกจากฐานข้อมูลจริง เพียงเปลี่ยนสถานะเป็น REMOVED
+    เพื่อรักษาประวัติทะเบียนสินทรัพย์และความสัมพันธ์กับใบแจ้งซ่อม/สถิติ uptime ที่มีอยู่"""
     db_camera = db.query(models.CameraAsset).filter(models.CameraAsset.id == camera_id).first()
     if db_camera:
-        db.delete(db_camera)
+        db_camera.status = "REMOVED"
         db.commit()
         return True
     return False

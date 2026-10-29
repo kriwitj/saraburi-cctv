@@ -23,7 +23,6 @@ const PURPOSE_TYPES = [
 ];
 
 const emptyForm = {
-  id: '',
   serial_number: '',
   asset_registry_no: '',
   mac_address: '',
@@ -60,6 +59,9 @@ const STATUS_OPTIONS = [
   { value: 'REMOVED', label: 'REMOVED' },
 ];
 
+// แท็บ "ใช้งานอยู่" ไม่รวมสถานะ REMOVED อยู่แล้ว จึงตัดออกจากตัวกรองสถานะเพื่อไม่ให้ซ้ำซ้อนกับแท็บ
+const ACTIVE_TAB_STATUS_OPTIONS = STATUS_OPTIONS.filter(o => o.value !== 'REMOVED');
+
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 const SORT_FIELD_OPTIONS = [
@@ -68,6 +70,7 @@ const SORT_FIELD_OPTIONS = [
 ];
 
 export default function Cameras({ currentUser, cameras, refetchCameras, addToast }: CamerasProps) {
+  const [activeTab, setActiveTab] = useState<'active' | 'removed'>('active');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterLocalGovId, setFilterLocalGovId] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -103,6 +106,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
 
   const filteredCameras = useMemo(() => {
     const filtered = cameras.filter(c =>
+      (activeTab === 'removed' ? c.status === 'REMOVED' : c.status !== 'REMOVED') &&
       (c.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.address_ref?.toLowerCase().includes(searchQuery.toLowerCase())) &&
       (!filterLocalGovId || c.local_gov_id === filterLocalGovId) &&
@@ -118,7 +122,10 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return sorted;
-  }, [cameras, searchQuery, filterLocalGovId, filterStatus, sortField, sortDir]);
+  }, [cameras, activeTab, searchQuery, filterLocalGovId, filterStatus, sortField, sortDir]);
+
+  const removedCount = useMemo(() => cameras.filter(c => c.status === 'REMOVED').length, [cameras]);
+  const activeCount = cameras.length - removedCount;
 
   const totalPages = Math.max(1, Math.ceil(filteredCameras.length / pageSize));
   const clampedPage = Math.min(currentPage, totalPages);
@@ -129,7 +136,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterLocalGovId, filterStatus, sortField, sortDir, pageSize]);
+  }, [activeTab, searchQuery, filterLocalGovId, filterStatus, sortField, sortDir, pageSize]);
 
   const setField = (key: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [key]: e.target.value }));
@@ -138,7 +145,6 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
   const resetForm = () => setForm(emptyForm);
 
   const buildPayload = () => ({
-    id: form.id,
     serial_number: form.serial_number || null,
     asset_registry_no: form.asset_registry_no || null,
     mac_address: form.mac_address || null,
@@ -169,13 +175,13 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.id || !form.address_ref || !form.local_gov_id || !form.latitude || !form.longitude) {
-      addToast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (รหัสกล้อง, อปท., สถานที่, พิกัด)', 'error');
+    if (!form.address_ref || !form.local_gov_id || !form.latitude || !form.longitude) {
+      addToast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (อปท., สถานที่, พิกัด)', 'error');
       return;
     }
     try {
-      await apiClient.post('/cameras', buildPayload());
-      addToast(`ลงทะเบียนกล้อง ${form.id} สำเร็จ`, 'success');
+      const res = await apiClient.post('/cameras', buildPayload());
+      addToast(`ลงทะเบียนกล้อง ${res.data.id} สำเร็จ`, 'success');
       setIsAddModalOpen(false);
       resetForm();
       refetchCameras();
@@ -212,7 +218,6 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
   const openEdit = (c: any) => {
     setEditingCam(c);
     setForm({
-      id: c.id,
       serial_number: c.serial_number || '',
       asset_registry_no: c.asset_registry_no || '',
       mac_address: c.mac_address || '',
@@ -294,20 +299,13 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
     }
   };
 
-  const renderFormFields = (isEdit: boolean) => (
+  const renderFormFields = () => (
     <div className="flex flex-col gap-4 max-h-[65vh] overflow-y-auto pr-1">
       <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-slate-400">รหัสสินทรัพย์ (Asset ID)<RequiredMark /></label>
-          <input type="text" value={form.id} onChange={setField('id')} disabled={isEdit} placeholder="SRI-1901-190101-0001" className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none disabled:opacity-50" required />
-        </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-xs text-slate-400">หมายเลขซีเรียล</label>
           <input type="text" value={form.serial_number} onChange={setField('serial_number')} placeholder="HK-99120-X" className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" />
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs text-slate-400">เลขครุภัณฑ์</label>
           <input type="text" value={form.asset_registry_no} onChange={setField('asset_registry_no')} placeholder="ครภ.518-60-0001" className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" />
@@ -541,6 +539,25 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
         </div>
       </div>
 
+      <div className="flex items-center gap-2 border-b border-white/10">
+        <button
+          onClick={() => { setActiveTab('active'); setFilterStatus(''); }}
+          className={`py-2.5 px-4 text-xs font-bold border-b-2 -mb-px cursor-pointer transition ${
+            activeTab === 'active' ? 'border-[#00AEEF] text-[#00AEEF]' : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          ใช้งานอยู่ ({activeCount})
+        </button>
+        <button
+          onClick={() => { setActiveTab('removed'); setFilterStatus(''); }}
+          className={`py-2.5 px-4 text-xs font-bold border-b-2 -mb-px cursor-pointer transition ${
+            activeTab === 'removed' ? 'border-red-400 text-red-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          ลบแล้ว ({removedCount})
+        </button>
+      </div>
+
       <div className="bg-[#121a2f] border border-white/10 rounded-2xl p-6 flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-black/20 border border-white/5 rounded-xl px-4 py-2 w-full max-w-md items-center gap-2">
@@ -562,15 +579,17 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
               emptyLabel="ทุกหน่วยงาน"
             />
           </div>
-          <div className="w-40">
-            <SearchableSelect
-              value={filterStatus}
-              onChange={setFilterStatus}
-              options={STATUS_OPTIONS}
-              placeholder="ทุกสถานะ"
-              emptyLabel="ทุกสถานะ"
-            />
-          </div>
+          {activeTab === 'active' && (
+            <div className="w-40">
+              <SearchableSelect
+                value={filterStatus}
+                onChange={setFilterStatus}
+                options={ACTIVE_TAB_STATUS_OPTIONS}
+                placeholder="ทุกสถานะ"
+                emptyLabel="ทุกสถานะ"
+              />
+            </div>
+          )}
           <div className="flex items-center gap-1.5 ml-auto">
             <span className="text-[11px] text-slate-500">เรียงตาม</span>
             <div className="w-44">
@@ -636,12 +655,14 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
                       >
                         แก้ไข
                       </button>
-                      <button
-                        onClick={() => setDeletingCamId(c.id)}
-                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-1.5 px-3 rounded-lg border border-red-500/20 cursor-pointer font-bold transition text-[11px]"
-                      >
-                        ลบ
-                      </button>
+                      {activeTab === 'active' && (
+                        <button
+                          onClick={() => setDeletingCamId(c.id)}
+                          className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-1.5 px-3 rounded-lg border border-red-500/20 cursor-pointer font-bold transition text-[11px]"
+                        >
+                          ลบ
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -691,7 +712,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
             </div>
             <form onSubmit={handleAdd} className="flex flex-col gap-4">
-              {renderFormFields(false)}
+              {renderFormFields()}
               <div className="flex gap-3 justify-end mt-4 pt-3 border-t border-white/5">
                 <button type="button" onClick={() => setIsAddModalOpen(false)} className="bg-white/5 hover:bg-white/10 text-slate-400 py-2 px-4 rounded-lg text-xs cursor-pointer">ยกเลิก</button>
                 <button type="submit" className="bg-gradient-to-r from-[#005BAC] to-[#00AEEF] text-white py-2 px-5 rounded-lg text-xs font-bold cursor-pointer">ลงทะเบียน</button>
@@ -710,7 +731,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
               <button onClick={() => setEditingCam(null)} className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
             </div>
             <form onSubmit={handleUpdate} className="flex flex-col gap-4">
-              {renderFormFields(true)}
+              {renderFormFields()}
               <div className="flex gap-3 justify-end mt-4 pt-3 border-t border-white/5">
                 <button type="button" onClick={() => setEditingCam(null)} className="bg-white/5 hover:bg-white/10 text-slate-400 py-2 px-4 rounded-lg text-xs cursor-pointer">ยกเลิก</button>
                 <button type="submit" className="bg-[#005BAC] text-white py-2 px-5 rounded-lg text-xs font-bold cursor-pointer">บันทึกการแก้ไข</button>
@@ -780,11 +801,11 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
               <h4 className="font-bold text-sm">ยืนยันการลบกล้องวงจรปิด</h4>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed mb-6">
-              คุณแน่ใจหรือไม่ที่จะลบกล้องรหัส <strong className="text-red-400">{deletingCamId}</strong> ออกจากทะเบียนกลาง? การกระทำนี้ไม่สามารถเรียกคืนข้อมูลได้
+              คุณแน่ใจหรือไม่ที่จะลบกล้องรหัส <strong className="text-red-400">{deletingCamId}</strong> ออกจากทะเบียนกลาง? ข้อมูลกล้องจะไม่ถูกลบถาวร แต่จะย้ายไปแสดงในแท็บ "ลบแล้ว" และสามารถกู้คืนได้ภายหลังโดยแก้ไขสถานะ
             </p>
             <div className="flex gap-3 justify-end pt-3 border-t border-white/5">
               <button onClick={() => setDeletingCamId(null)} className="bg-white/5 hover:bg-white/10 text-slate-400 py-2 px-4 rounded-lg text-xs cursor-pointer">ยกเลิก</button>
-              <button onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white py-2 px-5 rounded-lg text-xs font-bold cursor-pointer">ยืนยันลบถาวร</button>
+              <button onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white py-2 px-5 rounded-lg text-xs font-bold cursor-pointer">ยืนยันลบ</button>
             </div>
           </div>
         </div>

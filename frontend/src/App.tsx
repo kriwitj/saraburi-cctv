@@ -11,6 +11,7 @@ import {
 
 // Import Pages
 import Login from './pages/Login';
+import AuthCallback from './pages/AuthCallback';
 import Dashboard from './pages/Dashboard';
 import GisMap from './pages/GisMap';
 import Cameras from './pages/Cameras';
@@ -124,9 +125,13 @@ export default function App() {
         <Route
           path="/login"
           element={
-            currentUser ? <Navigate to="/dashboard" replace /> :
-            <Login onLoginSuccess={(user) => setCurrentUser(user)} addToast={addToast} />
+            currentUser ? <Navigate to="/dashboard" replace /> : <Login />
           }
+        />
+
+        <Route
+          path="/auth/callback"
+          element={<AuthCallback onLoginSuccess={(user) => setCurrentUser(user)} addToast={addToast} />}
         />
 
         <Route

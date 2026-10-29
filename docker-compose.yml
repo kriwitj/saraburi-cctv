@@ -42,8 +42,14 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-srb_admin}:${POSTGRES_PASSWORD:-srb_secure_password_2569}@db:5432/${POSTGRES_DB:-srb_cctv_registry}
       - MEDIA_SERVER_API=http://media:1984
       - JWT_SECRET=${JWT_SECRET:-srb_jwt_secret_key_2026_super_secure}
+      - SESSION_SECRET=${SESSION_SECRET:-srb_session_secret_key_2026}
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
       - ENVIRONMENT=${ENVIRONMENT:-development}
+      - KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER}
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
+      - FRONTEND_BASE_URL=${FRONTEND_BASE_URL:-http://localhost:3000}
+      - BACKEND_BASE_URL=${BACKEND_BASE_URL:-http://localhost:8000}
     depends_on:
       - db
       - media

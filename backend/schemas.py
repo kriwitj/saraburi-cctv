@@ -12,10 +12,6 @@ class TokenData(BaseModel):
     username: Optional[str] = None
     role: Optional[str] = None
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
 # User Schemas
 class UserBase(BaseModel):
     username: str
@@ -42,7 +38,6 @@ class UserOut(UserBase):
 
 # Camera Asset Schemas
 class CameraAssetBase(BaseModel):
-    id: str
     serial_number: Optional[str] = None
     asset_registry_no: Optional[str] = None
     mac_address: Optional[str] = None
@@ -73,7 +68,8 @@ class CameraAssetBase(BaseModel):
     stream_password_encrypted: Optional[str] = None
 
 class CameraAssetCreate(CameraAssetBase):
-    pass
+    # id ไม่รับจากผู้ใช้งานโดยตรง (ระบบสร้างให้อัตโนมัติ) ยกเว้น flow ภายใน เช่น bulk import ที่รู้ id ที่จะอัปเดตอยู่แล้ว
+    id: Optional[str] = None
 
 class CameraAssetOut(BaseModel):
     id: str
