@@ -840,6 +840,125 @@ def export_cameras_bulk(
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
+# --- DOWNLOAD TEMPLATE ---
+@app.get("/api/v1/cameras/template")
+def download_camera_template(format: str = Query("csv", pattern="^(csv|xlsx)$")):
+    """ดาวน์โหลดไฟล์ต้นแบบ (Template) สำหรับกรอกข้อมูลกล้อง CCTV นำเข้าระบบ (ตรงตามโครงสร้างฐานข้อมูลและฟิลด์จริง)"""
+    sample_rows = [
+        {
+            "id": "SRI-1901-190101-0001",
+            "serial_number": "HK-89124-XYZ",
+            "asset_registry_no": "ครภ.518-68-0001",
+            "mac_address": "E0:50:8B:1A:2C:4F",
+            "private_ip": "192.168.1.10",
+            "public_ip": "118.172.45.67",
+            "brand": "Hikvision",
+            "model": "DS-2CD21",
+            "category": "BULLET",
+            "local_gov_id": "5190101",
+            "district_id": "1901",
+            "latitude": 14.527200,
+            "longitude": 100.912500,
+            "elevation_m": 3.0,
+            "azimuth_deg": 120.0,
+            "view_angle_deg": 90.0,
+            "view_range_m": 30.0,
+            "address_ref": "สี่แยกตลาดโต้รุ่ง สระบุรี เสาไฟฟ้าหน้าเซเว่น",
+            "installation_site_id": "ROAD_INTERSECTION",
+            "install_point_type_id": "AREA_OVERVIEW",
+            "camera_function_type_id": "GENERAL",
+            "purpose_type": "TRAFFIC",
+            "status": "ONLINE",
+            "nvr_name": "NVR-Municipal-Office-1",
+            "project_fiscal_year": 2568,
+            "project_name": "โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน",
+            "install_date": "2024-01-15",
+            "warranty_expiry": "2028-12-31",
+            "stream_url": "rtsp://admin:pass@192.168.1.10:554/live"
+        },
+        {
+            "id": "",
+            "serial_number": "DH-99120-ABC",
+            "asset_registry_no": "ครภ.518-68-0002",
+            "mac_address": "F4:4E:05:AA:BB:CC",
+            "private_ip": "192.168.1.11",
+            "public_ip": "118.172.45.68",
+            "brand": "Dahua",
+            "model": "DH-IPC",
+            "category": "PTZ",
+            "local_gov_id": "เทศบาลเมืองสระบุรี",
+            "district_id": "1901",
+            "latitude": 14.532100,
+            "longitude": 100.915200,
+            "elevation_m": 3.5,
+            "azimuth_deg": 45.0,
+            "view_angle_deg": 85.0,
+            "view_range_m": 45.0,
+            "address_ref": "หน้า สภ.เมืองสระบุรี เสาทางเข้าหลัก",
+            "installation_site_id": "GOVERNMENT_AGENCY",
+            "install_point_type_id": "ENTRANCE_EXIT",
+            "camera_function_type_id": "PUBLIC_AREA_VIEW",
+            "purpose_type": "SAFETY",
+            "status": "ONLINE",
+            "nvr_name": "NVR-Municipal-Office-1",
+            "project_fiscal_year": 2568,
+            "project_name": "โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน",
+            "install_date": "2024-02-01",
+            "warranty_expiry": "2028-12-31",
+            "stream_url": ""
+        }
+    ]
+    df = pd.DataFrame(sample_rows)
+    if format == "csv":
+        buf = io.StringIO()
+        df.to_csv(buf, index=False, encoding="utf-8-sig")
+        content = buf.getvalue().encode("utf-8-sig")
+        media_type = "text/csv"
+        filename = "sri_cctv_template.csv"
+    else:
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Template_กรอกข้อมูล")
+            
+            # Sheet 2: คำอธิบายและรหัส Master Data อ้างอิง
+            ref_rows = [
+                {"ฟิลด์ (Field)": "id", "คำอธิบาย": "รหัสกล้อง (ลงทะเบียนใหม่ให้เว้นว่าง ระบบจะรันอัตโนมัติ เช่น SRI-1901-190101-0001, หากอัปเดตข้อมูลกล้องเดิมให้ระบุรหัสเดิม)", "ค่าตัวอย่าง": "SRI-1901-190101-0001 หรือ เว้นว่าง"},
+                {"ฟิลด์ (Field)": "serial_number", "คำอธิบาย": "หมายเลขซีเรียลของอุปกรณ์จากโรงงาน", "ค่าตัวอย่าง": "HK-89124-XYZ"},
+                {"ฟิลด์ (Field)": "asset_registry_no", "คำอธิบาย": "หมายเลขครุภัณฑ์ของหน่วยงาน", "ค่าตัวอย่าง": "ครภ.518-68-0001"},
+                {"ฟิลด์ (Field)": "mac_address", "คำอธิบาย": "MAC Address ของการ์ดเครือข่าย", "ค่าตัวอย่าง": "E0:50:8B:1A:2C:4F"},
+                {"ฟิลด์ (Field)": "private_ip / public_ip", "คำอธิบาย": "IP Address ภายใน/ภายนอกของกล้อง", "ค่าตัวอย่าง": "192.168.1.10, 118.172.45.67"},
+                {"ฟิลด์ (Field)": "brand / model", "คำอธิบาย": "ยี่ห้อและรุ่นของอุปกรณ์กล้อง", "ค่าตัวอย่าง": "Hikvision / DS-2CD21, Dahua / DH-IPC"},
+                {"ฟิลด์ (Field)": "category", "คำอธิบาย": "ประเภทตัวกล้อง", "ค่าตัวอย่าง": "FIXED, DOME, BULLET, PTZ, ANPR"},
+                {"ฟิลด์ (Field)": "local_gov_id", "คำอธิบาย": "รหัสหน่วยงาน อปท. (ตามแท็บ A. ข้อมูลหน่วยงาน เช่น 5190101 โดยไม่ต้องมี LA-) หรือระบุเป็นชื่อหน่วยงาน อปท.", "ค่าตัวอย่าง": "5190101, เทศบาลเมืองสระบุรี, อบจ.สระบุรี"},
+                {"ฟิลด์ (Field)": "latitude / longitude", "คำอธิบาย": "พิกัด WGS84 ภายในจังหวัดสระบุรี (lat: 14.20-15.10, lng: 100.50-101.60)", "ค่าตัวอย่าง": "14.527200, 100.912500"},
+                {"ฟิลด์ (Field)": "elevation_m", "คำอธิบาย": "ความสูงติดตั้งจากระดับพื้นดิน (เมตร)", "ค่าตัวอย่าง": "3.0, 3.5, 4.0"},
+                {"ฟิลด์ (Field)": "azimuth_deg", "คำอธิบาย": "ทิศทางกล้องหันไป (0-360 องศา, 0=ทิศเหนือ, 90=ตะวันออก, 180=ใต้, 270=ตะวันตก)", "ค่าตัวอย่าง": "0, 90, 120, 180"},
+                {"ฟิลด์ (Field)": "view_angle_deg", "คำอธิบาย": "มุมมองภาพแนวนอน FOV (องศา)", "ค่าตัวอย่าง": "60, 90, 110"},
+                {"ฟิลด์ (Field)": "view_range_m", "คำอธิบาย": "ระยะมองเห็นชัดเจน (เมตร)", "ค่าตัวอย่าง": "20, 30, 50"},
+                {"ฟิลด์ (Field)": "address_ref", "คำอธิบาย": "สถานที่ติดตั้ง / จุดอ้างอิงตำแหน่งจริง", "ค่าตัวอย่าง": "สี่แยกตลาดโต้รุ่ง สระบุรี เสาไฟฟ้าหน้าเซเว่น"},
+                {"ฟิลด์ (Field)": "installation_site_id", "คำอธิบาย": "จุดติดตั้ง", "ค่าตัวอย่าง": "ROAD_INTERSECTION (สี่แยก/ทางแยก), GOVERNMENT_AGENCY (สถานที่ราชการ), COMMUNITY_PUBLIC (ชุมชน/สาธารณะ), TRANSPORT_STATION (สถานีขนส่ง), INDUSTRIAL_ESTATE (นิคมฯ), NATURE_OBSERVATION (ธรรมชาติ/ประตูน้ำ)"},
+                {"ฟิลด์ (Field)": "install_point_type_id", "คำอธิบาย": "ประเภทจุดติดตั้ง", "ค่าตัวอย่าง": "AREA_OVERVIEW (ภาพรวมพื้นที่), ENTRANCE_EXIT (ทางเข้า-ออก), PARKING (ที่จอดรถ), LOADING_UNLOADING (รับส่งสินค้า), SURVEILLANCE_ZONE (พื้นที่เฝ้าระวัง)"},
+                {"ฟิลด์ (Field)": "camera_function_type_id", "คำอธิบาย": "ฟังก์ชันการใช้งานกล้อง", "ค่าตัวอย่าง": "GENERAL (กล้องทั่วไป), PUBLIC_AREA_VIEW (พื้นที่สาธารณะ), VIDEO_ANALYTICS (วิเคราะห์ภาพ AI)"},
+                {"ฟิลด์ (Field)": "purpose_type", "คำอธิบาย": "วัตถุประสงค์หลัก", "ค่าตัวอย่าง": "SAFETY (ความปลอดภัย), TRAFFIC (จราจร), ENVIRONMENT (สิ่งแวดล้อม), DISASTER (ป้องกันภัยพิบัติ)"},
+                {"ฟิลด์ (Field)": "status", "คำอธิบาย": "สถานะการใช้งาน", "ค่าตัวอย่าง": "ONLINE (พร้อมใช้งาน), OFFLINE (ชำรุด/ขัดข้อง), MAINTENANCE (อยู่ระหว่างซ่อม), PENDING_INSTALL (รอติดตั้ง)"},
+                {"ฟิลด์ (Field)": "nvr_name", "คำอธิบาย": "ชื่อระบบบันทึกภาพ NVR/VMS ที่บันทึกกล้องนี้", "ค่าตัวอย่าง": "NVR-Municipal-Office-1"},
+                {"ฟิลด์ (Field)": "project_name / project_fiscal_year", "คำอธิบาย": "ชื่อโครงการจัดซื้อ และปีงบประมาณ", "ค่าตัวอย่าง": "โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน / 2568"},
+                {"ฟิลด์ (Field)": "install_date / warranty_expiry", "คำอธิบาย": "วันที่ติดตั้ง และวันหมดประกัน รูปแบบ YYYY-MM-DD", "ค่าตัวอย่าง": "2024-01-15, 2028-12-31"},
+                {"ฟิลด์ (Field)": "stream_url", "คำอธิบาย": "URL สำหรับดึงสตรีมภาพ (RTSP/HLS/WebRTC)", "ค่าตัวอย่าง": "rtsp://admin:pass@192.168.1.10:554/live"}
+            ]
+            pd.DataFrame(ref_rows).to_excel(writer, index=False, sheet_name="คำอธิบายฟิลด์_DataDictionary")
+        content = buf.getvalue()
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        filename = "sri_cctv_template.xlsx"
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+
 @app.get("/api/v1/cameras/{camera_id}", response_model=schemas.CameraAssetOut)
 def read_camera_detail(camera_id: str, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     camera = crud.get_camera(db, camera_id=camera_id)
@@ -1049,123 +1168,6 @@ def get_public_landing_stats(db: Session = Depends(get_db)):
     )
 
 
-# --- DOWNLOAD TEMPLATE ---
-@app.get("/api/v1/cameras/template")
-def download_camera_template(format: str = Query("csv", pattern="^(csv|xlsx)$")):
-    """ดาวน์โหลดไฟล์ต้นแบบ (Template) สำหรับกรอกข้อมูลกล้อง CCTV นำเข้าระบบ (ตรงตามโครงสร้างฐานข้อมูลและฟิลด์จริง)"""
-    sample_rows = [
-        {
-            "id": "SRI-1901-190101-0001",
-            "serial_number": "HK-89124-XYZ",
-            "asset_registry_no": "ครภ.518-68-0001",
-            "mac_address": "E0:50:8B:1A:2C:4F",
-            "private_ip": "192.168.1.10",
-            "public_ip": "118.172.45.67",
-            "brand": "Hikvision",
-            "model": "DS-2CD21",
-            "category": "BULLET",
-            "local_gov_id": "5190101",
-            "district_id": "1901",
-            "latitude": 14.527200,
-            "longitude": 100.912500,
-            "elevation_m": 3.0,
-            "azimuth_deg": 120.0,
-            "view_angle_deg": 90.0,
-            "view_range_m": 30.0,
-            "address_ref": "สี่แยกตลาดโต้รุ่ง สระบุรี เสาไฟฟ้าหน้าเซเว่น",
-            "installation_site_id": "ROAD_INTERSECTION",
-            "install_point_type_id": "AREA_OVERVIEW",
-            "camera_function_type_id": "GENERAL",
-            "purpose_type": "TRAFFIC",
-            "status": "ONLINE",
-            "nvr_name": "NVR-Municipal-Office-1",
-            "project_fiscal_year": 2568,
-            "project_name": "โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน",
-            "install_date": "2024-01-15",
-            "warranty_expiry": "2028-12-31",
-            "stream_url": "rtsp://admin:pass@192.168.1.10:554/live"
-        },
-        {
-            "id": "",
-            "serial_number": "DH-99120-ABC",
-            "asset_registry_no": "ครภ.518-68-0002",
-            "mac_address": "F4:4E:05:AA:BB:CC",
-            "private_ip": "192.168.1.11",
-            "public_ip": "118.172.45.68",
-            "brand": "Dahua",
-            "model": "DH-IPC",
-            "category": "PTZ",
-            "local_gov_id": "เทศบาลเมืองสระบุรี",
-            "district_id": "1901",
-            "latitude": 14.532100,
-            "longitude": 100.915200,
-            "elevation_m": 3.5,
-            "azimuth_deg": 45.0,
-            "view_angle_deg": 85.0,
-            "view_range_m": 45.0,
-            "address_ref": "หน้า สภ.เมืองสระบุรี เสาทางเข้าหลัก",
-            "installation_site_id": "GOVERNMENT_AGENCY",
-            "install_point_type_id": "ENTRANCE_EXIT",
-            "camera_function_type_id": "PUBLIC_AREA_VIEW",
-            "purpose_type": "SAFETY",
-            "status": "ONLINE",
-            "nvr_name": "NVR-Municipal-Office-1",
-            "project_fiscal_year": 2568,
-            "project_name": "โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน",
-            "install_date": "2024-02-01",
-            "warranty_expiry": "2028-12-31",
-            "stream_url": ""
-        }
-    ]
-    df = pd.DataFrame(sample_rows)
-    if format == "csv":
-        buf = io.StringIO()
-        df.to_csv(buf, index=False, encoding="utf-8-sig")
-        content = buf.getvalue().encode("utf-8-sig")
-        media_type = "text/csv"
-        filename = "sri_cctv_template.csv"
-    else:
-        buf = io.BytesIO()
-        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            df.to_excel(writer, index=False, sheet_name="Template_กรอกข้อมูล")
-            
-            # Sheet 2: คำอธิบายและรหัส Master Data อ้างอิง
-            ref_rows = [
-                {"ฟิลด์ (Field)": "id", "คำอธิบาย": "รหัสกล้อง (ลงทะเบียนใหม่ให้เว้นว่าง ระบบจะรันอัตโนมัติ เช่น SRI-1901-190101-0001, หากอัปเดตข้อมูลกล้องเดิมให้ระบุรหัสเดิม)", "ค่าตัวอย่าง": "SRI-1901-190101-0001 หรือ เว้นว่าง"},
-                {"ฟิลด์ (Field)": "serial_number", "คำอธิบาย": "หมายเลขซีเรียลของอุปกรณ์จากโรงงาน", "ค่าตัวอย่าง": "HK-89124-XYZ"},
-                {"ฟิลด์ (Field)": "asset_registry_no", "คำอธิบาย": "หมายเลขครุภัณฑ์ของหน่วยงาน", "ค่าตัวอย่าง": "ครภ.518-68-0001"},
-                {"ฟิลด์ (Field)": "mac_address", "คำอธิบาย": "MAC Address ของการ์ดเครือข่าย", "ค่าตัวอย่าง": "E0:50:8B:1A:2C:4F"},
-                {"ฟิลด์ (Field)": "private_ip / public_ip", "คำอธิบาย": "IP Address ภายใน/ภายนอกของกล้อง", "ค่าตัวอย่าง": "192.168.1.10, 118.172.45.67"},
-                {"ฟิลด์ (Field)": "brand / model", "คำอธิบาย": "ยี่ห้อและรุ่นของอุปกรณ์กล้อง", "ค่าตัวอย่าง": "Hikvision / DS-2CD21, Dahua / DH-IPC"},
-                {"ฟิลด์ (Field)": "category", "คำอธิบาย": "ประเภทตัวกล้อง", "ค่าตัวอย่าง": "FIXED, DOME, BULLET, PTZ, ANPR"},
-                {"ฟิลด์ (Field)": "local_gov_id", "คำอธิบาย": "รหัสหน่วยงาน อปท. (ตามแท็บ A. ข้อมูลหน่วยงาน เช่น 5190101 โดยไม่ต้องมี LA-) หรือระบุเป็นชื่อหน่วยงาน อปท.", "ค่าตัวอย่าง": "5190101, เทศบาลเมืองสระบุรี, อบจ.สระบุรี"},
-                {"ฟิลด์ (Field)": "latitude / longitude", "คำอธิบาย": "พิกัด WGS84 ภายในจังหวัดสระบุรี (lat: 14.20-15.10, lng: 100.50-101.60)", "ค่าตัวอย่าง": "14.527200, 100.912500"},
-                {"ฟิลด์ (Field)": "elevation_m", "คำอธิบาย": "ความสูงติดตั้งจากระดับพื้นดิน (เมตร)", "ค่าตัวอย่าง": "3.0, 3.5, 4.0"},
-                {"ฟิลด์ (Field)": "azimuth_deg", "คำอธิบาย": "ทิศทางกล้องหันไป (0-360 องศา, 0=ทิศเหนือ, 90=ตะวันออก, 180=ใต้, 270=ตะวันตก)", "ค่าตัวอย่าง": "0, 90, 120, 180"},
-                {"ฟิลด์ (Field)": "view_angle_deg", "คำอธิบาย": "มุมมองภาพแนวนอน FOV (องศา)", "ค่าตัวอย่าง": "60, 90, 110"},
-                {"ฟิลด์ (Field)": "view_range_m", "คำอธิบาย": "ระยะมองเห็นชัดเจน (เมตร)", "ค่าตัวอย่าง": "20, 30, 50"},
-                {"ฟิลด์ (Field)": "address_ref", "คำอธิบาย": "สถานที่ติดตั้ง / จุดอ้างอิงตำแหน่งจริง", "ค่าตัวอย่าง": "สี่แยกตลาดโต้รุ่ง สระบุรี เสาไฟฟ้าหน้าเซเว่น"},
-                {"ฟิลด์ (Field)": "installation_site_id", "คำอธิบาย": "จุดติดตั้ง", "ค่าตัวอย่าง": "ROAD_INTERSECTION (สี่แยก/ทางแยก), GOVERNMENT_AGENCY (สถานที่ราชการ), COMMUNITY_PUBLIC (ชุมชน/สาธารณะ), TRANSPORT_STATION (สถานีขนส่ง), INDUSTRIAL_ESTATE (นิคมฯ), NATURE_OBSERVATION (ธรรมชาติ/ประตูน้ำ)"},
-                {"ฟิลด์ (Field)": "install_point_type_id", "คำอธิบาย": "ประเภทจุดติดตั้ง", "ค่าตัวอย่าง": "AREA_OVERVIEW (ภาพรวมพื้นที่), ENTRANCE_EXIT (ทางเข้า-ออก), PARKING (ที่จอดรถ), LOADING_UNLOADING (รับส่งสินค้า), SURVEILLANCE_ZONE (พื้นที่เฝ้าระวัง)"},
-                {"ฟิลด์ (Field)": "camera_function_type_id", "คำอธิบาย": "ฟังก์ชันการใช้งานกล้อง", "ค่าตัวอย่าง": "GENERAL (กล้องทั่วไป), PUBLIC_AREA_VIEW (พื้นที่สาธารณะ), VIDEO_ANALYTICS (วิเคราะห์ภาพ AI)"},
-                {"ฟิลด์ (Field)": "purpose_type", "คำอธิบาย": "วัตถุประสงค์หลัก", "ค่าตัวอย่าง": "SAFETY (ความปลอดภัย), TRAFFIC (จราจร), ENVIRONMENT (สิ่งแวดล้อม), DISASTER (ป้องกันภัยพิบัติ)"},
-                {"ฟิลด์ (Field)": "status", "คำอธิบาย": "สถานะการใช้งาน", "ค่าตัวอย่าง": "ONLINE (พร้อมใช้งาน), OFFLINE (ชำรุด/ขัดข้อง), MAINTENANCE (อยู่ระหว่างซ่อม), PENDING_INSTALL (รอติดตั้ง)"},
-                {"ฟิลด์ (Field)": "nvr_name", "คำอธิบาย": "ชื่อระบบบันทึกภาพ NVR/VMS ที่บันทึกกล้องนี้", "ค่าตัวอย่าง": "NVR-Municipal-Office-1"},
-                {"ฟิลด์ (Field)": "project_name / project_fiscal_year", "คำอธิบาย": "ชื่อโครงการจัดซื้อ และปีงบประมาณ", "ค่าตัวอย่าง": "โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน / 2568"},
-                {"ฟิลด์ (Field)": "install_date / warranty_expiry", "คำอธิบาย": "วันที่ติดตั้ง และวันหมดประกัน รูปแบบ YYYY-MM-DD", "ค่าตัวอย่าง": "2024-01-15, 2028-12-31"},
-                {"ฟิลด์ (Field)": "stream_url", "คำอธิบาย": "URL สำหรับดึงสตรีมภาพ (RTSP/HLS/WebRTC)", "ค่าตัวอย่าง": "rtsp://admin:pass@192.168.1.10:554/live"}
-            ]
-            pd.DataFrame(ref_rows).to_excel(writer, index=False, sheet_name="คำอธิบายฟิลด์_DataDictionary")
-        content = buf.getvalue()
-        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        filename = "sri_cctv_template.xlsx"
-
-    return Response(
-        content=content,
-        media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
-    )
-
 # --- BULK IMPORT ---
 @app.post("/api/v1/cameras/import", response_model=schemas.BulkImportSummary)
 def import_cameras_bulk(
@@ -1181,20 +1183,50 @@ def import_cameras_bulk(
     try:
         if file.filename.endswith(".csv"):
             try:
-                df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
+                df = pd.read_csv(io.StringIO(contents.decode('utf-8')), dtype=str)
             except UnicodeDecodeError:
-                df = pd.read_csv(io.StringIO(contents.decode('cp874', errors='ignore')))
+                df = pd.read_csv(io.StringIO(contents.decode('cp874', errors='ignore')), dtype=str)
         else:
-            df = pd.read_excel(io.BytesIO(contents))
+            df = pd.read_excel(io.BytesIO(contents), dtype=str)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"ไม่สามารถเปิดอ่านไฟล์ได้: {str(e)}")
 
-    # สร้าง Dictionary สำหรับการจับคู่หน่วยงานเจ้าของ (LocalGovernment)
+    # สร้าง Dictionary สำหรับการจับคู่หน่วยงานเจ้าของ (LocalGovernment) ครอบคลุมทุกรูปแบบ
     all_local_govs = db.query(models.LocalGovernment).all()
-    gov_by_id = {g.id.strip(): g for g in all_local_govs}
-    gov_by_dla = {g.dla_code.strip(): g for g in all_local_govs if g.dla_code}
-    gov_by_stripped_id = {g.id.replace("LA-", "").replace("la-", "").strip(): g for g in all_local_govs}
-    gov_by_name = {g.name_th.strip(): g for g in all_local_govs if g.name_th}
+    gov_lookup = {}
+    for g in all_local_govs:
+        # 1. รหัสเต็มในฐานข้อมูล เช่น 'LA-190101', 'LA-06191306'
+        g_id = g.id.strip()
+        gov_lookup[g_id] = g
+        gov_lookup[g_id.upper()] = g
+        gov_lookup[g_id.lower()] = g
+
+        # 2. รหัสตัด LA- ออก เช่น '190101', '06191306'
+        stripped = g_id.replace("LA-", "").replace("la-", "").replace("La-", "").strip()
+        if stripped:
+            gov_lookup[stripped] = g
+            gov_lookup[stripped.lstrip("0")] = g
+            if len(stripped) == 6:
+                gov_lookup[f"0{stripped}"] = g
+
+        # 3. รหัส dla_code ในฐานข้อมูล เช่น '5190101', '04190102'
+        if g.dla_code:
+            dla = str(g.dla_code).strip()
+            if dla.endswith(".0"):
+                dla = dla[:-2].strip()
+            gov_lookup[dla] = g
+            gov_lookup[dla.lstrip("0")] = g
+            gov_lookup[f"LA-{dla}"] = g
+            if len(dla) == 7:
+                gov_lookup[f"0{dla}"] = g
+
+        # 4. ชื่อหน่วยงานภาษาไทย
+        if g.name_th:
+            name = g.name_th.strip()
+            gov_lookup[name] = g
+            for pfx in ["องค์การบริหารส่วนจังหวัด", "เทศบาลเมือง", "เทศบาลตำบล", "องค์การบริหารส่วนตำบล", "อบต.", "อบต "]:
+                if name.startswith(pfx):
+                    gov_lookup[name[len(pfx):].strip()] = g
 
     # สร้าง Dictionary สำหรับ Lookups อื่นๆ
     all_sites = {s.id.strip(): s.id for s in db.query(models.InstallationSite).all()}
@@ -1223,6 +1255,8 @@ def import_cameras_bulk(
                 val = row.get(alias)
                 if not pd.isna(val):
                     s = str(val).strip()
+                    if s.endswith(".0"):
+                        s = s[:-2].strip()
                     if s and s.lower() != "nan" and s.lower() != "none" and s.lower() != "null":
                         return s
         return default
@@ -1262,35 +1296,39 @@ def import_cameras_bulk(
         target_local_gov = None
 
         if gov_raw:
-            raw_s = str(gov_raw).strip()
-            raw_no_la = raw_s.replace("LA-", "").replace("la-", "").strip()
-            if raw_s in gov_by_dla:
-                target_local_gov = gov_by_dla[raw_s]
-            elif raw_no_la in gov_by_dla:
-                target_local_gov = gov_by_dla[raw_no_la]
-            elif raw_s in gov_by_id:
-                target_local_gov = gov_by_id[raw_s]
-            elif raw_no_la in gov_by_stripped_id:
-                target_local_gov = gov_by_stripped_id[raw_no_la]
-            elif f"LA-{raw_s}" in gov_by_id:
-                target_local_gov = gov_by_id[f"LA-{raw_s}"]
-            elif raw_s in gov_by_name:
-                target_local_gov = gov_by_name[raw_s]
-            else:
-                # ลองค้นหาแบบบางส่วน (partial match)
-                for g_name, g_obj in gov_by_name.items():
-                    if raw_s in g_name or g_name in raw_s:
-                        target_local_gov = g_obj
+            clean = str(gov_raw).strip()
+            if clean.endswith(".0"):
+                clean = clean[:-2].strip()
+
+            clean_no_la = clean.replace("LA-", "").replace("la-", "").replace("La-", "").strip()
+
+            # ลำดับการจับคู่แบบครอบคลุม:
+            target_local_gov = (
+                gov_lookup.get(clean) or
+                gov_lookup.get(clean_no_la) or
+                gov_lookup.get(clean.lstrip("0")) or
+                gov_lookup.get(clean_no_la.lstrip("0")) or
+                gov_lookup.get(f"LA-{clean_no_la}")
+            )
+
+            # หากยังไม่พบ ให้ค้นหาแบบชื่อส่วนหนึ่ง (Partial Name Match)
+            if not target_local_gov:
+                for g in all_local_govs:
+                    if g.name_th and (clean in g.name_th or g.name_th in clean):
+                        target_local_gov = g
                         break
 
-        # ถ้าไม่ระบุหรือหาไม่พบ ให้ใช้ตามสังกัดของผู้ใช้ปัจจุบัน หรือค่าเริ่มต้น
+        # ถ้าไม่ระบุหรือหาไม่พบ ให้แจ้ง Error ทันที (ไม่ใช้ Default องค์การบริหารส่วนจังหวัดสระบุรี เด็ดขาด)
         if not target_local_gov:
-            if current_user.local_gov_id and current_user.local_gov_id in gov_by_id:
-                target_local_gov = gov_by_id[current_user.local_gov_id]
-            elif all_local_govs:
-                target_local_gov = all_local_govs[0]
+            raw_display = str(gov_raw).strip() if gov_raw is not None else "(ไม่ได้ระบุ)"
+            errors.append(schemas.RowErrorDetail(
+                row=row_num,
+                column="local_gov_id",
+                error=f"ไม่พบหน่วยงานเจ้าของ '{raw_display}' ในระบบ Master Data กรุณาระบุรหัสหน่วยงานหรือชื่อหน่วยงานที่ถูกต้อง"
+            ))
+            continue
 
-        target_local_gov_id = target_local_gov.id if target_local_gov else "LA-190101"
+        target_local_gov_id = target_local_gov.id
 
         # 3. ตรวจสอบการอัปเดตข้อมูลเดิม หรือรันเลขใหม่
         existing_cam = None
