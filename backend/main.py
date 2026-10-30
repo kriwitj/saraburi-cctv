@@ -787,8 +787,8 @@ def export_cameras_bulk(
             "latitude": cam.latitude,
             "longitude": cam.longitude,
             "elevation_m": cam.elevation_m,
-            "azimuth": cam.azimuth_deg,
-            "fov_horizontal": cam.view_angle_deg,
+            "azimuth_deg": cam.azimuth_deg,
+            "view_angle_deg": cam.view_angle_deg,
             "view_range_m": cam.view_range_m,
             "address_ref": cam.address_ref,
             "installation_site_id": cam.installation_site_id,
@@ -801,6 +801,7 @@ def export_cameras_bulk(
             "project_name": cam.project.name if cam.project else None,
             "install_date": cam.install_date,
             "warranty_expiry": cam.warranty_expiry,
+            "stream_url": cam.stream_url,
         })
 
     df = pd.DataFrame(rows)
@@ -1044,13 +1045,15 @@ def get_public_landing_stats(db: Session = Depends(get_db)):
 # --- DOWNLOAD TEMPLATE ---
 @app.get("/api/v1/cameras/template")
 def download_camera_template(format: str = Query("csv", pattern="^(csv|xlsx)$")):
-    """ดาวน์โหลดไฟล์ต้นแบบ (Template) สำหรับกรอกข้อมูลกล้อง CCTV นำเข้าระบบ"""
+    """ดาวน์โหลดไฟล์ต้นแบบ (Template) สำหรับกรอกข้อมูลกล้อง CCTV นำเข้าระบบ (ตรงตามโครงสร้างฐานข้อมูลและฟิลด์จริง)"""
     sample_rows = [
         {
             "id": "SRI-1901-190101-0001",
             "serial_number": "HK-89124-XYZ",
             "asset_registry_no": "ครภ.518-68-0001",
             "mac_address": "E0:50:8B:1A:2C:4F",
+            "private_ip": "192.168.1.10",
+            "public_ip": "118.172.45.67",
             "brand": "Hikvision",
             "model": "DS-2CD21",
             "category": "BULLET",
@@ -1058,8 +1061,8 @@ def download_camera_template(format: str = Query("csv", pattern="^(csv|xlsx)$"))
             "latitude": 14.527200,
             "longitude": 100.912500,
             "elevation_m": 3.0,
-            "azimuth": 120,
-            "fov_horizontal": 90.0,
+            "azimuth_deg": 120,
+            "view_angle_deg": 90.0,
             "view_range_m": 30.0,
             "address_ref": "สี่แยกตลาดโต้รุ่ง สระบุรี เสาไฟฟ้าหน้าเซเว่น",
             "installation_site_id": "ROAD_INTERSECTION",
@@ -1069,13 +1072,18 @@ def download_camera_template(format: str = Query("csv", pattern="^(csv|xlsx)$"))
             "status": "ONLINE",
             "nvr_name": "NVR-Municipal-Office-1",
             "project_name": "โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน",
-            "warranty_expiry": "2028-12-31"
+            "project_fiscal_year": 2568,
+            "install_date": "2024-01-15",
+            "warranty_expiry": "2028-12-31",
+            "stream_url": "rtsp://admin:pass@192.168.1.10:554/live"
         },
         {
             "id": "",
             "serial_number": "DH-99120-ABC",
             "asset_registry_no": "ครภ.518-68-0002",
             "mac_address": "F4:4E:05:AA:BB:CC",
+            "private_ip": "192.168.1.11",
+            "public_ip": "118.172.45.68",
             "brand": "Dahua",
             "model": "DH-IPC",
             "category": "PTZ",
@@ -1083,8 +1091,8 @@ def download_camera_template(format: str = Query("csv", pattern="^(csv|xlsx)$"))
             "latitude": 14.532100,
             "longitude": 100.915200,
             "elevation_m": 3.5,
-            "azimuth": 45,
-            "fov_horizontal": 85.0,
+            "azimuth_deg": 45,
+            "view_angle_deg": 85.0,
             "view_range_m": 45.0,
             "address_ref": "หน้า สภ.เมืองสระบุรี เสาทางเข้าหลัก",
             "installation_site_id": "GOVERNMENT_AGENCY",
@@ -1094,7 +1102,10 @@ def download_camera_template(format: str = Query("csv", pattern="^(csv|xlsx)$"))
             "status": "ONLINE",
             "nvr_name": "NVR-Municipal-Office-1",
             "project_name": "โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน",
-            "warranty_expiry": "2028-12-31"
+            "project_fiscal_year": 2568,
+            "install_date": "2024-02-01",
+            "warranty_expiry": "2028-12-31",
+            "stream_url": ""
         }
     ]
     df = pd.DataFrame(sample_rows)
@@ -1107,7 +1118,35 @@ def download_camera_template(format: str = Query("csv", pattern="^(csv|xlsx)$"))
     else:
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            df.to_excel(writer, index=False, sheet_name="Template")
+            df.to_excel(writer, index=False, sheet_name="Template_กรอกข้อมูล")
+            
+            # Sheet 2: คำอธิบายและรหัส Master Data อ้างอิง
+            ref_rows = [
+                {"ฟิลด์ (Field)": "id", "คำอธิบาย": "รหัสกล้อง (ลงทะเบียนใหม่ให้เว้นว่าง ระบบจะรันอัตโนมัติ เช่น SRI-1901-190101-0001, หากอัปเดตข้อมูลกล้องเดิมให้ระบุรหัสเดิม)", "ค่าตัวอย่าง": "SRI-1901-190101-0001 หรือ เว้นว่าง"},
+                {"ฟิลด์ (Field)": "serial_number", "คำอธิบาย": "หมายเลขซีเรียลของอุปกรณ์จากโรงงาน", "ค่าตัวอย่าง": "HK-89124-XYZ"},
+                {"ฟิลด์ (Field)": "asset_registry_no", "คำอธิบาย": "หมายเลขครุภัณฑ์ของหน่วยงาน", "ค่าตัวอย่าง": "ครภ.518-68-0001"},
+                {"ฟิลด์ (Field)": "mac_address", "คำอธิบาย": "MAC Address ของการ์ดเครือข่าย", "ค่าตัวอย่าง": "E0:50:8B:1A:2C:4F"},
+                {"ฟิลด์ (Field)": "private_ip / public_ip", "คำอธิบาย": "IP Address ภายใน/ภายนอกของกล้อง", "ค่าตัวอย่าง": "192.168.1.10, 118.172.45.67"},
+                {"ฟิลด์ (Field)": "brand / model", "คำอธิบาย": "ยี่ห้อและรุ่นของอุปกรณ์กล้อง", "ค่าตัวอย่าง": "Hikvision / DS-2CD21, Dahua / DH-IPC"},
+                {"ฟิลด์ (Field)": "category", "คำอธิบาย": "ประเภทตัวกล้อง", "ค่าตัวอย่าง": "FIXED, DOME, BULLET, PTZ, ANPR"},
+                {"ฟิลด์ (Field)": "local_gov_id", "คำอธิบาย": "รหัส อปท. หรือชื่อหน่วยงาน อปท. เจ้าของกล้อง", "ค่าตัวอย่าง": "LA-190101, เทศบาลเมืองสระบุรี, อบจ.สระบุรี"},
+                {"ฟิลด์ (Field)": "latitude / longitude", "คำอธิบาย": "พิกัด WGS84 ภายในจังหวัดสระบุรี (lat: 14.20-15.10, lng: 100.50-101.60)", "ค่าตัวอย่าง": "14.527200, 100.912500"},
+                {"ฟิลด์ (Field)": "elevation_m", "คำอธิบาย": "ความสูงติดตั้งจากระดับพื้นดิน (เมตร)", "ค่าตัวอย่าง": "3.0, 3.5, 4.0"},
+                {"ฟิลด์ (Field)": "azimuth_deg", "คำอธิบาย": "ทิศทางกล้องหันไป (0-360 องศา, 0=ทิศเหนือ, 90=ตะวันออก, 180=ใต้, 270=ตะวันตก)", "ค่าตัวอย่าง": "0, 90, 120, 180"},
+                {"ฟิลด์ (Field)": "view_angle_deg", "คำอธิบาย": "มุมมองภาพแนวนอน FOV (องศา)", "ค่าตัวอย่าง": "60, 90, 110"},
+                {"ฟิลด์ (Field)": "view_range_m", "คำอธิบาย": "ระยะมองเห็นชัดเจน (เมตร)", "ค่าตัวอย่าง": "20, 30, 50"},
+                {"ฟิลด์ (Field)": "address_ref", "คำอธิบาย": "สถานที่ติดตั้ง / จุดอ้างอิงตำแหน่งจริง", "ค่าตัวอย่าง": "สี่แยกตลาดโต้รุ่ง สระบุรี เสาไฟฟ้าหน้าเซเว่น"},
+                {"ฟิลด์ (Field)": "installation_site_id", "คำอธิบาย": "จุดติดตั้ง", "ค่าตัวอย่าง": "ROAD_INTERSECTION (สี่แยก/ทางแยก), GOVERNMENT_AGENCY (สถานที่ราชการ), COMMUNITY_PUBLIC (ชุมชน/สาธารณะ), TRANSPORT_STATION (สถานีขนส่ง), INDUSTRIAL_ESTATE (นิคมฯ), NATURE_OBSERVATION (ธรรมชาติ/ประตูน้ำ)"},
+                {"ฟิลด์ (Field)": "install_point_type_id", "คำอธิบาย": "ประเภทจุดติดตั้ง", "ค่าตัวอย่าง": "AREA_OVERVIEW (ภาพรวมพื้นที่), ENTRANCE_EXIT (ทางเข้า-ออก), PARKING (ที่จอดรถ), LOADING_UNLOADING (รับส่งสินค้า), SURVEILLANCE_ZONE (พื้นที่เฝ้าระวัง)"},
+                {"ฟิลด์ (Field)": "camera_function_type_id", "คำอธิบาย": "ฟังก์ชันการใช้งานกล้อง", "ค่าตัวอย่าง": "GENERAL (กล้องทั่วไป), PUBLIC_AREA_VIEW (พื้นที่สาธารณะ), VIDEO_ANALYTICS (วิเคราะห์ภาพ AI)"},
+                {"ฟิลด์ (Field)": "purpose_type", "คำอธิบาย": "วัตถุประสงค์หลัก", "ค่าตัวอย่าง": "SAFETY (ความปลอดภัย), TRAFFIC (จราจร), ENVIRONMENT (สิ่งแวดล้อม), DISASTER (ป้องกันภัยพิบัติ)"},
+                {"ฟิลด์ (Field)": "status", "คำอธิบาย": "สถานะการใช้งาน", "ค่าตัวอย่าง": "ONLINE (พร้อมใช้งาน), OFFLINE (ชำรุด/ขัดข้อง), MAINTENANCE (อยู่ระหว่างซ่อม), PENDING_INSTALL (รอติดตั้ง)"},
+                {"ฟิลด์ (Field)": "nvr_name", "คำอธิบาย": "ชื่อระบบบันทึกภาพ NVR/VMS ที่บันทึกกล้องนี้", "ค่าตัวอย่าง": "NVR-Municipal-Office-1"},
+                {"ฟิลด์ (Field)": "project_name / project_fiscal_year", "คำอธิบาย": "ชื่อโครงการจัดซื้อ และปีงบประมาณ", "ค่าตัวอย่าง": "โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน / 2568"},
+                {"ฟิลด์ (Field)": "install_date / warranty_expiry", "คำอธิบาย": "วันที่ติดตั้ง และวันหมดประกัน รูปแบบ YYYY-MM-DD", "ค่าตัวอย่าง": "2024-01-15, 2028-12-31"},
+                {"ฟิลด์ (Field)": "stream_url", "คำอธิบาย": "URL สำหรับดึงสตรีมภาพ (RTSP/HLS/WebRTC)", "ค่าตัวอย่าง": "rtsp://admin:pass@192.168.1.10:554/live"}
+            ]
+            pd.DataFrame(ref_rows).to_excel(writer, index=False, sheet_name="คำอธิบายฟิลด์_DataDictionary")
         content = buf.getvalue()
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         filename = "sri_cctv_template.xlsx"
@@ -1274,9 +1313,25 @@ def import_cameras_bulk(
             db.refresh(db_brand)
 
         model_name = get_cell(row, ["model", "รุ่น"], default="DefaultModel")
-        category_raw = get_cell(row, ["category", "ประเภทกล้อง", "หมวดหมู่"], default="FIXED").upper()
-        valid_cats = ["FIXED", "PTZ", "ANPR", "DOME", "BULLET"]
-        category = category_raw if category_raw in valid_cats else "FIXED"
+        category_map = {
+            "FIXED": "FIXED",
+            "DOME": "DOME",
+            "BULLET": "BULLET",
+            "PTZ": "PTZ",
+            "ANPR": "ANPR",
+            "กล้องติดตาย": "FIXED",
+            "กล้องกระบอก": "BULLET",
+            "ทรงกระบอก": "BULLET",
+            "กระบอก": "BULLET",
+            "โดม": "DOME",
+            "กล้องโดม": "DOME",
+            "ทรงโดม": "DOME",
+            "กล้อง PTZ": "PTZ",
+            "อ่านป้ายทะเบียน": "ANPR",
+            "อ่านทะเบียน": "ANPR",
+        }
+        category_raw = get_cell(row, ["category", "ประเภทกล้อง", "หมวดหมู่", "Category"], default="FIXED").strip()
+        category = category_map.get(category_raw, category_map.get(category_raw.upper(), "FIXED"))
 
         db_cat = db.query(models.DeviceCatalog).filter(
             models.DeviceCatalog.brand_id == db_brand.id,
@@ -1346,8 +1401,27 @@ def import_cameras_bulk(
         purpose_raw = get_cell(row, ["purpose_type", "จุดมุ่งหมายหลัก", "วัตถุประสงค์"], default="SAFETY")
         purpose_type = purpose_map.get(purpose_raw, "SAFETY")
 
-        status_raw = get_cell(row, ["status", "สถานะ"], default="ONLINE").upper()
-        status_val = status_raw if status_raw in ["ONLINE", "OFFLINE", "MAINTENANCE", "REMOVED", "PENDING_INSTALL"] else "ONLINE"
+        status_map = {
+            "ONLINE": "ONLINE",
+            "OFFLINE": "OFFLINE",
+            "MAINTENANCE": "MAINTENANCE",
+            "PENDING_INSTALL": "PENDING_INSTALL",
+            "REMOVED": "REMOVED",
+            "พร้อมใช้งาน": "ONLINE",
+            "ออนไลน์": "ONLINE",
+            "ชำรุด": "OFFLINE",
+            "ขัดข้อง": "OFFLINE",
+            "ชำรุด/ขัดข้อง": "OFFLINE",
+            "ออฟไลน์": "OFFLINE",
+            "ซ่อม": "MAINTENANCE",
+            "อยู่ระหว่างซ่อม": "MAINTENANCE",
+            "ซ่อมบำรุง": "MAINTENANCE",
+            "รอติดตั้ง": "PENDING_INSTALL",
+            "ปลดประจำการ": "REMOVED",
+            "ลบแล้ว": "REMOVED",
+        }
+        status_raw = get_cell(row, ["status", "สถานะ", "Status"], default="ONLINE").strip()
+        status_val = status_map.get(status_raw, status_map.get(status_raw.upper(), "ONLINE"))
 
         # 9. บันทึกข้อมูลกล้อง (Upsert)
         try:
@@ -1365,18 +1439,18 @@ def import_cameras_bulk(
                 latitude=lat,
                 longitude=lng,
                 elevation_m=parse_float(get_cell(row, ["elevation_m", "ความสูง"]), default=3.0),
-                azimuth_deg=parse_float(get_cell(row, ["azimuth", "azimuth_deg", "ทิศ"]), default=0.0),
-                view_angle_deg=parse_float(get_cell(row, ["fov_horizontal", "view_angle_deg", "มุมมอง"]), default=90.0),
-                view_range_m=parse_float(get_cell(row, ["view_range_m", "ระยะมองเห็น"]), default=30.0),
-                address_ref=get_cell(row, ["address_ref", "สถานที่ติดตั้ง", "ที่อยู่"], default="ไม่ระบุสถานที่ติดตั้ง"),
+                azimuth_deg=parse_float(get_cell(row, ["azimuth_deg", "azimuth", "ทิศทาง", "ทิศทางกล้อง", "ทิศ", "Azimuth"]), default=0.0),
+                view_angle_deg=parse_float(get_cell(row, ["view_angle_deg", "fov_horizontal", "fov", "มุมมอง", "มุมมองภาพ", "FOV"]), default=90.0),
+                view_range_m=parse_float(get_cell(row, ["view_range_m", "ระยะมองเห็น", "ระยะ", "View Range"]), default=30.0),
+                address_ref=get_cell(row, ["address_ref", "สถานที่ติดตั้ง", "ที่อยู่", "สถานที่อ้างอิง", "Address Ref"], default="ไม่ระบุสถานที่ติดตั้ง"),
                 installation_site_id=site_id,
                 install_point_type_id=point_type_id,
                 camera_function_type_id=func_type_id,
                 purpose_type=purpose_type,
                 status=status_val,
-                install_date=parse_date(get_cell(row, ["install_date", "วันที่ติดตั้ง"])),
-                warranty_expiry=parse_date(get_cell(row, ["warranty_expiry", "วันหมดประกัน"])),
-                stream_url=get_cell(row, ["stream_url", "URL สตรีม", "rtsp"])
+                install_date=parse_date(get_cell(row, ["install_date", "วันที่ติดตั้ง", "วันติดตั้ง", "Install Date"])),
+                warranty_expiry=parse_date(get_cell(row, ["warranty_expiry", "วันหมดประกัน", "หมดประกัน", "Warranty Expiry"])),
+                stream_url=get_cell(row, ["stream_url", "URL สตรีม", "rtsp", "Stream URL"])
             )
 
             if existing_cam:
