@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Shield, LogIn, Key, User, ArrowRight } from 'lucide-react';
+import { Shield, LogIn, Key, User, ArrowRight, ArrowLeft, Home } from 'lucide-react';
 import { API_BASE_URL, apiClient, extractErrorMessage } from '../api/client';
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -75,6 +75,15 @@ export default function Login({ onLoginSuccess, addToast }: LoginProps) {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#070b13] text-white p-4">
+      {/* Back to Home Button at Top Left */}
+      <button
+        onClick={() => navigate('/')}
+        className="absolute top-5 left-5 z-30 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold backdrop-blur-md border border-white/10 transition cursor-pointer group shadow-lg"
+      >
+        <ArrowLeft className="w-4 h-4 text-cyan-400 group-hover:-translate-x-1 transition-transform" />
+        <span>กลับหน้าหลัก (Home)</span>
+      </button>
+
       <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-[#005BAC]/15 rounded-full blur-[100px] animate-pulse"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#00AEEF]/10 rounded-full blur-[120px] animate-pulse"></div>
 
@@ -84,7 +93,11 @@ export default function Login({ onLoginSuccess, addToast }: LoginProps) {
         <div className="md:w-5/12 bg-gradient-to-br from-[#005BAC]/90 via-[#005BAC]/75 to-[#00AEEF]/80 p-8 md:p-12 flex flex-col justify-between relative">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.3))]"></div>
           <div className="relative z-10">
-            <div className="flex gap-3 mb-4 items-center">
+            <div
+              className="flex gap-3 mb-4 items-center cursor-pointer hover:opacity-90 transition"
+              onClick={() => navigate('/')}
+              title="คลิกเพื่อกลับหน้าหลัก"
+            >
               <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-md">
                 <Shield className="w-6 h-6 text-[#005BAC]" />
               </div>
@@ -120,11 +133,21 @@ export default function Login({ onLoginSuccess, addToast }: LoginProps) {
 
         {/* RIGHT COLUMN: LOGIN FORM */}
         <div className="md:w-7/12 p-8 md:p-12 flex flex-col justify-center bg-[#0d1322]/80">
-          <div className="mb-6">
-            <h3 className="text-xl md:text-2xl font-bold text-white">เข้าสู่ระบบ / Sign In</h3>
-            <p className="text-xs text-slate-400 mt-1">
-              เข้าใช้งานระบบทะเบียนกลางกล้อง CCTV สระบุรี (Enterprise Command Center)
-            </p>
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-xl md:text-2xl font-bold text-white">เข้าสู่ระบบ / Sign In</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                เข้าใช้งานระบบทะเบียนกลางกล้อง CCTV สระบุรี (Enterprise Command Center)
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-semibold border border-white/10 transition cursor-pointer shrink-0"
+              title="กลับหน้าหลัก"
+            >
+              <Home className="w-3.5 h-3.5 text-[#00AEEF]" />
+              <span>หน้าหลัก</span>
+            </button>
           </div>
 
           {loginError && (

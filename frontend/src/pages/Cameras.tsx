@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Search, AlertOctagon, Download, Upload, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Trash2, Loader2, RefreshCw } from 'lucide-react';
+import { Plus, Search, AlertOctagon, Download, Upload, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Trash2, Loader2, RefreshCw, X } from 'lucide-react';
 import { apiClient, extractErrorMessage } from '../api/client';
 import {
   useDeviceBrands, useDeviceCatalog, useLocalGovernments, useNvrVmsSystems, useProjects,
@@ -758,54 +758,6 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
           </div>
         </div>
 
-        {/* BATCH SELECTION ACTION BAR */}
-        {canEdit && activeTab === 'active' && selectedCameraIds.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
-            <div className="flex items-center gap-3">
-              <span className="flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-md bg-red-500/20 text-red-400 font-bold text-xs">
-                {selectedCameraIds.length}
-              </span>
-              <span className="text-xs font-semibold text-slate-200">
-                เลือกอยู่ <strong className="text-white font-bold">{selectedCameraIds.length}</strong> รายการ
-              </span>
-              {selectedCameraIds.length < filteredCameras.length && (
-                <button
-                  type="button"
-                  onClick={selectAllFiltered}
-                  className="text-xs text-[#00AEEF] hover:underline cursor-pointer font-medium ml-1"
-                >
-                  (เลือกทั้งหมด {filteredCameras.length} รายการที่ค้นพบ)
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition cursor-pointer"
-              >
-                ยกเลิกการเลือก
-              </button>
-              <button
-                type="button"
-                onClick={() => { setBulkTargetStatus('ONLINE'); setIsBulkStatusModalOpen(true); }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#00AEEF] hover:bg-[#0096ce] text-white shadow-md shadow-[#00AEEF]/20 transition cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                เปลี่ยนสถานะ ({selectedCameraIds.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsBulkDeleteModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/30 transition cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                ลบที่เลือก ({selectedCameraIds.length})
-              </button>
-            </div>
-          </div>
-        )}
-
         <div className="overflow-x-auto rounded-xl border border-white/5">
           <table className="w-full text-xs text-left">
             <thead>
@@ -932,6 +884,60 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
           </div>
         </div>
       </div>
+
+      {/* FLOATING BATCH ACTION DOCK (Zero Layout Shift) */}
+      {canEdit && activeTab === 'active' && selectedCameraIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] animate-in fade-in slide-in-from-bottom-5 duration-200 pointer-events-auto">
+          <div className="flex flex-wrap items-center gap-3.5 bg-[#091124]/95 border border-[#00AEEF]/40 backdrop-blur-xl rounded-2xl px-5 py-3 shadow-[0_20px_50px_rgba(0,0,0,0.7)] text-white">
+            <div className="flex items-center gap-2.5">
+              <span className="flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-[#00AEEF] text-white font-black text-xs shadow-md shadow-[#00AEEF]/40">
+                {selectedCameraIds.length}
+              </span>
+              <span className="text-xs font-bold text-white whitespace-nowrap">
+                เลือก <strong className="text-[#00AEEF]">{selectedCameraIds.length}</strong> รายการ
+              </span>
+              {selectedCameraIds.length < filteredCameras.length && (
+                <button
+                  type="button"
+                  onClick={selectAllFiltered}
+                  className="text-xs text-sky-300 hover:text-white underline cursor-pointer font-medium ml-1 whitespace-nowrap"
+                >
+                  (เลือกทั้งหมด {filteredCameras.length} รายการ)
+                </button>
+              )}
+            </div>
+
+            <div className="h-5 w-px bg-white/20 mx-0.5 hidden sm:block" />
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setBulkTargetStatus('ONLINE'); setIsBulkStatusModalOpen(true); }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#00AEEF] hover:bg-[#0096ce] text-white shadow-md shadow-[#00AEEF]/30 transition cursor-pointer whitespace-nowrap"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                เปลี่ยนสถานะ
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/30 transition cursor-pointer whitespace-nowrap"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                ลบที่เลือก
+              </button>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white transition cursor-pointer ml-1"
+                title="ยกเลิกการเลือกทั้งหมด"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ADD CAMERA MODAL */}
       {isAddModalOpen && (

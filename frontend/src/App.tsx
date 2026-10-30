@@ -105,6 +105,7 @@ export default function App() {
     localStorage.removeItem('srb_token');
     setCurrentUser(null);
     addToast('ออกจากระบบเรียบร้อย', 'success');
+    window.location.href = '/';
   };
 
   if (isRestoringSession) {
