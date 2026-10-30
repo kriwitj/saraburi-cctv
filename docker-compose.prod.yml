@@ -1,13 +1,12 @@
 # Override สำหรับ production: เชื่อมเข้ากับ Traefik reverse proxy ที่รันอยู่แล้วบนเซิร์ฟเวอร์
 # ใช้งานคู่กับไฟล์หลัก: docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env up -d
+# หรือถ้าใช้ docker-compose.override.yml ระบบจะ merge อัตโนมัติด้วยคำสั่ง: docker compose up -d --build
 #
 # ข้อกำหนดก่อนใช้:
-# 1. มี Traefik ตัวหลักรันอยู่แล้วบนเซิร์ฟเวอร์ พร้อม network ภายนอกชื่อ proxy_net และ certresolver ชื่อ letsencrypt
+# 1. มี Traefik ตัวหลักรันอยู่แล้วบนเซิร์ฟเวอร์ พร้อม network ภายนอกชื่อ proxy_net
 #    (ถ้ายังไม่มี: docker network create proxy_net แล้วตั้ง Traefik ให้ join network นี้)
 # 2. ตั้งค่า BIND_ADDRESS=127.0.0.1 ใน .env เพื่อไม่ให้พอร์ตของแต่ละ service หลุดออกอินเทอร์เน็ตตรง ๆ
-#    (Traefik เข้าถึง service ผ่าน proxy_net โดยตรง ไม่ต้องพึ่งพอร์ตที่ publish ออกมาบนโฮสต์)
-# 3. ตั้งค่า APP_DOMAIN, API_DOMAIN, STREAM_DOMAIN ใน .env ให้ตรงกับ DNS จริงที่ชี้มาเซิร์ฟเวอร์นี้
-#    และต้องตรงกับ VITE_API_URL / VITE_MEDIA_URL / CORS_ORIGINS ที่ตั้งไว้ด้วย
+# 3. ตั้งค่า APP_DOMAIN, API_DOMAIN, STREAM_DOMAIN ใน .env ให้ตรงกับ DNS จริง
 
 networks:
   proxy_net:
@@ -21,14 +20,19 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy_net"
-      # Router หลัก - หน้าเว็บ SPA (React + Vite)
+      # Router HTTPS (port 443 / websecure)
       - "traefik.http.routers.srb-cctv-frontend.rule=Host(`${APP_DOMAIN:-cctv.saraburidev.org}`) || Host(`www.${APP_DOMAIN:-cctv.saraburidev.org}`)"
       - "traefik.http.routers.srb-cctv-frontend.entrypoints=websecure"
       - "traefik.http.routers.srb-cctv-frontend.tls=true"
       - "traefik.http.routers.srb-cctv-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.srb-cctv-frontend.service=srb-cctv-frontend"
       - "traefik.http.services.srb-cctv-frontend.loadbalancer.server.port=3000"
+      # Router HTTP (port 80 / web) - รองรับกรณี Cloudflare ส่งมาแบบ HTTP (Flexible SSL) หรือ Direct HTTP
+      - "traefik.http.routers.srb-cctv-frontend-http.rule=Host(`${APP_DOMAIN:-cctv.saraburidev.org}`) || Host(`www.${APP_DOMAIN:-cctv.saraburidev.org}`)"
+      - "traefik.http.routers.srb-cctv-frontend-http.entrypoints=web"
+      - "traefik.http.routers.srb-cctv-frontend-http.service=srb-cctv-frontend"
       # Middleware: redirect www -> non-www
-      - "traefik.http.middlewares.srb-cctv-www-redirect.redirectregex.regex=^https://www\\.${APP_DOMAIN:-cctv.saraburidev.org}/(.*)"
+      - "traefik.http.middlewares.srb-cctv-www-redirect.redirectregex.regex=^https?://www\\.${APP_DOMAIN:-cctv.saraburidev.org}/(.*)"
       - "traefik.http.middlewares.srb-cctv-www-redirect.redirectregex.replacement=https://${APP_DOMAIN:-cctv.saraburidev.org}/$${1}"
       - "traefik.http.routers.srb-cctv-frontend.middlewares=srb-cctv-www-redirect"
 
@@ -39,25 +43,33 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy_net"
-      # Router API - แยกโดเมนย่อยออกจากหน้าเว็บ (ต้องตรงกับ VITE_API_URL ใน .env)
+      # Router HTTPS (websecure)
       - "traefik.http.routers.srb-cctv-backend.rule=Host(`${API_DOMAIN:-api-cctv.saraburidev.org}`)"
       - "traefik.http.routers.srb-cctv-backend.entrypoints=websecure"
       - "traefik.http.routers.srb-cctv-backend.tls=true"
       - "traefik.http.routers.srb-cctv-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.srb-cctv-backend.service=srb-cctv-backend"
       - "traefik.http.services.srb-cctv-backend.loadbalancer.server.port=8000"
+      # Router HTTP (web)
+      - "traefik.http.routers.srb-cctv-backend-http.rule=Host(`${API_DOMAIN:-api-cctv.saraburidev.org}`)"
+      - "traefik.http.routers.srb-cctv-backend-http.entrypoints=web"
+      - "traefik.http.routers.srb-cctv-backend-http.service=srb-cctv-backend"
 
   media:
-    # เว็บ API/UI ของ go2rtc (พอร์ต 1984) proxy ผ่าน Traefik ได้ตามปกติ
-    # ส่วน RTSP (8554) และ WebRTC (8555 tcp/udp) เป็นโปรโตคอลที่ไม่ใช่ HTTP
-    # Traefik proxy ให้ไม่ได้ จึงยังต้องเปิดพอร์ตเหล่านี้ตรงบนเซิร์ฟเวอร์ต่อไป (ดู docker-compose.yml)
     networks:
       - cctv-net
       - proxy_net
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy_net"
+      # Router HTTPS (websecure)
       - "traefik.http.routers.srb-cctv-media.rule=Host(`${STREAM_DOMAIN:-stream-cctv.saraburidev.org}`)"
       - "traefik.http.routers.srb-cctv-media.entrypoints=websecure"
       - "traefik.http.routers.srb-cctv-media.tls=true"
       - "traefik.http.routers.srb-cctv-media.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.srb-cctv-media.service=srb-cctv-media"
       - "traefik.http.services.srb-cctv-media.loadbalancer.server.port=1984"
+      # Router HTTP (web)
+      - "traefik.http.routers.srb-cctv-media-http.rule=Host(`${STREAM_DOMAIN:-stream-cctv.saraburidev.org}`)"
+      - "traefik.http.routers.srb-cctv-media-http.entrypoints=web"
+      - "traefik.http.routers.srb-cctv-media-http.service=srb-cctv-media"
