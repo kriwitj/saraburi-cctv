@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Search, AlertOctagon, Download, Upload, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Search, AlertOctagon, Download, Upload, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Trash2, Loader2 } from 'lucide-react';
 import { apiClient, extractErrorMessage } from '../api/client';
 import {
   useDeviceBrands, useDeviceCatalog, useLocalGovernments, useNvrVmsSystems, useProjects,
@@ -90,6 +90,10 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingCam, setEditingCam] = useState<any>(null);
   const [deletingCamId, setDeletingCamId] = useState<string | null>(null);
+  const [selectedCameraIds, setSelectedCameraIds] = useState<string[]>([]);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const headerCheckboxRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<typeof emptyForm>(emptyForm);
   const nvrVmsApi = useNvrVmsSystems(form.local_gov_id || undefined);
   const [isExporting, setIsExporting] = useState(false);
@@ -200,6 +204,58 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
       refetchCameras();
     } catch (err: any) {
       addToast(extractErrorMessage(err, 'แก้ไขข้อมูลกล้องไม่สำเร็จ'), 'error');
+    }
+  };
+
+  const currentPageCameraIds = useMemo(() => paginatedCameras.map(c => c.id), [paginatedCameras]);
+  const isAllCurrentPageSelected = currentPageCameraIds.length > 0 && currentPageCameraIds.every(id => selectedCameraIds.includes(id));
+  const isSomeCurrentPageSelected = currentPageCameraIds.some(id => selectedCameraIds.includes(id)) && !isAllCurrentPageSelected;
+
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate = isSomeCurrentPageSelected;
+    }
+  }, [isSomeCurrentPageSelected]);
+
+  useEffect(() => {
+    setSelectedCameraIds([]);
+  }, [activeTab]);
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedCameraIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllCurrentPage = () => {
+    if (isAllCurrentPageSelected) {
+      setSelectedCameraIds(prev => prev.filter(id => !currentPageCameraIds.includes(id)));
+    } else {
+      setSelectedCameraIds(prev => Array.from(new Set([...prev, ...currentPageCameraIds])));
+    }
+  };
+
+  const selectAllFiltered = () => {
+    setSelectedCameraIds(filteredCameras.map(c => c.id));
+  };
+
+  const clearSelection = () => {
+    setSelectedCameraIds([]);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedCameraIds.length === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const res = await apiClient.post('/cameras/bulk-delete', { ids: selectedCameraIds });
+      addToast(res.data?.message || `ลบกล้อง ${res.data?.deleted_count || selectedCameraIds.length} รายการสำเร็จ`, 'success');
+      setSelectedCameraIds([]);
+      setIsBulkDeleteModalOpen(false);
+      refetchCameras();
+    } catch (err: any) {
+      addToast(extractErrorMessage(err, 'ลบกล้องแบบกลุ่มไม่สำเร็จ'), 'error');
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -664,10 +720,62 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
           </div>
         </div>
 
+        {/* BATCH SELECTION ACTION BAR */}
+        {canEdit && activeTab === 'active' && selectedCameraIds.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-md bg-red-500/20 text-red-400 font-bold text-xs">
+                {selectedCameraIds.length}
+              </span>
+              <span className="text-xs font-semibold text-slate-200">
+                เลือกอยู่ <strong className="text-white font-bold">{selectedCameraIds.length}</strong> รายการ
+              </span>
+              {selectedCameraIds.length < filteredCameras.length && (
+                <button
+                  type="button"
+                  onClick={selectAllFiltered}
+                  className="text-xs text-[#00AEEF] hover:underline cursor-pointer font-medium ml-1"
+                >
+                  (เลือกทั้งหมด {filteredCameras.length} รายการที่ค้นพบ)
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition cursor-pointer"
+              >
+                ยกเลิกการเลือก
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/30 transition cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                ลบที่เลือก ({selectedCameraIds.length})
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto rounded-xl border border-white/5">
           <table className="w-full text-xs text-left">
             <thead>
               <tr className="bg-black/40 text-slate-400 border-b border-white/10">
+                {canEdit && activeTab === 'active' && (
+                  <th className="p-4 w-10 text-center">
+                    <input
+                      ref={headerCheckboxRef}
+                      type="checkbox"
+                      checked={isAllCurrentPageSelected}
+                      onChange={toggleSelectAllCurrentPage}
+                      title={isAllCurrentPageSelected ? "ยกเลิกเลือกหน้านี้" : "เลือกทั้งหมดในหน้านี้"}
+                      className="w-4 h-4 rounded border-slate-400 text-[#00AEEF] focus:ring-[#00AEEF] cursor-pointer accent-[#00AEEF]"
+                    />
+                  </th>
+                )}
                 <th className="p-4">รหัสกล้อง (Asset ID)</th>
                 <th className="p-4">เลขครุภัณฑ์</th>
                 <th className="p-4">สถานที่ติดตั้ง</th>
@@ -680,9 +788,26 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
               </tr>
             </thead>
             <tbody>
-              {paginatedCameras.map(c => (
-                <tr key={c.id} className="border-b border-white/5 hover:bg-white/5 transition">
-                  <td className="p-4 font-bold text-[#00AEEF]">{c.id}</td>
+              {paginatedCameras.map(c => {
+                const isSelected = selectedCameraIds.includes(c.id);
+                return (
+                  <tr
+                    key={c.id}
+                    className={`border-b border-white/5 transition ${
+                      isSelected ? 'bg-[#00AEEF]/10 border-l-2 border-l-[#00AEEF]' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    {canEdit && activeTab === 'active' && (
+                      <td className="p-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectOne(c.id)}
+                          className="w-4 h-4 rounded border-slate-400 text-[#00AEEF] focus:ring-[#00AEEF] cursor-pointer accent-[#00AEEF]"
+                        />
+                      </td>
+                    )}
+                    <td className="p-4 font-bold text-[#00AEEF]">{c.id}</td>
                   <td className="p-4 text-slate-400 font-mono">{c.asset_registry_no || '-'}</td>
                   <td className="p-4 font-semibold text-slate-200">{c.address_ref}</td>
                   <td className="p-4 text-slate-400">{localGovName(c.local_gov_id)}</td>
@@ -721,7 +846,8 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
                     </td>
                   )}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -842,6 +968,79 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
             )}
             <div className="flex justify-end pt-4 mt-2 border-t border-white/5">
               <button onClick={() => setImportSummary(null)} className="bg-white/5 hover:bg-white/10 text-slate-400 py-2 px-4 rounded-lg text-xs cursor-pointer">ปิดหน้าต่าง</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BULK DELETE CONFIRMATION MODAL */}
+      {isBulkDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md p-4">
+          <div className="bg-[#0f1525] border border-red-500/30 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+            <div className="flex items-center gap-3 text-red-500 mb-3">
+              <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20">
+                <AlertOctagon className="w-6 h-6 text-red-500" />
+              </div>
+              <div>
+                <h4 className="font-bold text-base text-white">ยืนยันการลบกล้องวงจรปิดแบบกลุ่ม</h4>
+                <p className="text-xs text-red-400">การดำเนินการนี้จะส่งผลต่อกล้องจำนวน {selectedCameraIds.length} รายการ</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 mb-3 leading-relaxed">
+              คุณแน่ใจหรือไม่ที่จะลบกล้องที่เลือกจำนวน <strong className="text-white font-bold">{selectedCameraIds.length} รายการ</strong> ออกจากระบบทะเบียนกลาง? 
+              ข้อมูลกล้องจะไม่ถูกลบถาวร แต่จะย้ายไปแสดงในแท็บ <span className="text-amber-400 font-semibold">'ลบแล้ว' (REMOVED)</span> โดยจะไม่แสดงในแผนที่และรายการกล้องที่ใช้งานอยู่
+            </p>
+
+            {/* Selected Items Preview */}
+            <div className="bg-black/40 border border-white/5 rounded-xl p-3 mb-4 overflow-y-auto max-h-48 divide-y divide-white/5">
+              <div className="text-[11px] text-slate-400 font-semibold mb-2 flex justify-between">
+                <span>รายการกล้องที่เลือก:</span>
+                <span>{selectedCameraIds.length} รายการ</span>
+              </div>
+              {selectedCameraIds.slice(0, 15).map(id => {
+                const cam = cameras.find(c => c.id === id);
+                return (
+                  <div key={id} className="py-1.5 flex items-center justify-between text-xs">
+                    <span className="font-mono text-[#00AEEF] font-bold">{id}</span>
+                    <span className="text-slate-400 truncate max-w-[240px] text-right">{cam?.address_ref || '-'}</span>
+                  </div>
+                );
+              })}
+              {selectedCameraIds.length > 15 && (
+                <div className="pt-2 text-center text-xs text-slate-500 italic">
+                  ... และอีก {selectedCameraIds.length - 15} รายการ
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 justify-end pt-3 border-t border-white/10 mt-auto">
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteModalOpen(false)}
+                disabled={isBulkDeleting}
+                className="bg-white/5 hover:bg-white/10 text-slate-300 py-2 px-4 rounded-xl text-xs font-semibold cursor-pointer disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={isBulkDeleting}
+                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white py-2 px-5 rounded-xl text-xs font-bold cursor-pointer shadow-lg shadow-red-600/30 disabled:opacity-50"
+              >
+                {isBulkDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    กำลังลบข้อมูล...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    ยืนยันการลบ {selectedCameraIds.length} รายการ
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

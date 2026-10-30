@@ -899,6 +899,61 @@ def remove_camera(camera_id: str, db: Session = Depends(get_db), current_user: m
     )
     return {"success": True, "detail": "ลบกล้องสำเร็จ"}
 
+@app.post("/api/v1/cameras/bulk-delete", response_model=schemas.CameraBulkDeleteResponse)
+def bulk_remove_cameras(
+    req: schemas.CameraBulkDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if current_user.role not in ["SUPER_ADMIN", "LOCAL_GOV_STAFF"]:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบกล้อง")
+
+    if not req.ids:
+        raise HTTPException(status_code=400, detail="กรุณาระบุรหัสกล้องที่ต้องการลบอย่างน้อย 1 รายการ")
+
+    deleted_count = 0
+    failed_ids = []
+
+    for cam_id in req.ids:
+        db_cam = crud.get_camera(db, cam_id)
+        if not db_cam:
+            failed_ids.append(cam_id)
+            continue
+
+        if current_user.role == "LOCAL_GOV_STAFF" and db_cam.local_gov_id != current_user.local_gov_id:
+            failed_ids.append(cam_id)
+            continue
+
+        success = crud.delete_camera(db, cam_id)
+        if success:
+            deleted_count += 1
+            crud.create_audit_log(
+                db,
+                schemas.AuditLogCreate(
+                    action="BULK_DELETE_CAMERA",
+                    target_type="CAMERA",
+                    target_id=cam_id,
+                    client_ip="127.0.0.1",
+                    reason=f"ลบกล้องแบบกลุ่ม (Bulk Delete) โดย {current_user.username}"
+                ),
+                username=current_user.username,
+                user_id=current_user.id
+            )
+        else:
+            failed_ids.append(cam_id)
+
+    msg = f"ลบข้อมูลกล้องสำเร็จ {deleted_count} รายการ"
+    if failed_ids:
+        msg += f" (ล้มเหลวหรือไม่ได้รับสิทธิ์ {len(failed_ids)} รายการ)"
+
+    return schemas.CameraBulkDeleteResponse(
+        success=(deleted_count > 0 or len(failed_ids) == 0),
+        deleted_count=deleted_count,
+        failed_count=len(failed_ids),
+        failed_ids=failed_ids,
+        message=msg
+    )
+
 
 # --- DOWNLOAD TEMPLATE ---
 @app.get("/api/v1/cameras/template")

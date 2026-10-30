@@ -110,6 +110,16 @@ class CameraAssetOut(BaseModel):
     class Config:
         from_attributes = True
 
+class CameraBulkDeleteRequest(BaseModel):
+    ids: List[str]
+
+class CameraBulkDeleteResponse(BaseModel):
+    success: bool
+    deleted_count: int
+    failed_count: int = 0
+    failed_ids: List[str] = []
+    message: str
+
 # GeoJSON Wrapper Schema for GIS mapping
 class CameraGeoJSONProperties(BaseModel):
     id: str
