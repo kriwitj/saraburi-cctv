@@ -367,25 +367,25 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
     }
   };
 
-  const handleDownloadTemplate = async () => {
+  const handleDownloadTemplate = async (format: 'csv' | 'xlsx' = 'csv') => {
     try {
       const res = await apiClient.get('/cameras/template', {
-        params: { format: 'csv' },
+        params: { format },
         responseType: 'blob',
       });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'sri_cctv_template.csv';
+      link.download = `sri_cctv_template.${format}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      addToast('ดาวน์โหลด Template นำเข้าข้อมูลกล้องสำเร็จ', 'success');
+      addToast(`ดาวน์โหลด Template (${format.toUpperCase()}) สำเร็จ`, 'success');
     } catch (err: any) {
       // Fallback: download client-side template if backend request fails
-      const sampleCsv = `id,local_gov_id,serial_number,asset_registry_no,mac_address,brand,model,category,latitude,longitude,elevation_m,azimuth,fov_horizontal,view_range_m,address_ref,installation_site_id,install_point_type_id,camera_function_type_id,purpose_type,status,nvr_name,project_name,warranty_expiry\\nSRI-1901-190101-0001,LA-190101,HK-89124-XYZ,ครภ.518-68-0001,E0:50:8B:1A:2C:4F,Hikvision,DS-2CD21,BULLET,14.527200,100.912500,3.0,120,90.0,30.0,สี่แยกตลาดโต้รุ่ง สระบุรี,ROAD_INTERSECTION,AREA_OVERVIEW,GENERAL,TRAFFIC,ONLINE,NVR-Office-1,โครงการจัดซื้อกล้อง,2028-12-31\\n,เทศบาลเมืองสระบุรี,DH-99120-ABC,ครภ.518-68-0002,F4:4E:05:AA:BB:CC,Dahua,DH-IPC,PTZ,14.532100,100.915200,3.5,45,85.0,45.0,หน้า สภ.เมืองสระบุรี,GOVERNMENT_AGENCY,ENTRANCE_EXIT,PUBLIC_AREA_VIEW,SAFETY,ONLINE,NVR-Office-1,โครงการจัดซื้อกล้อง,2028-12-31`;
-      const blob = new Blob([sampleCsv.replace(/\\\\n/g, '\\n')], { type: 'text/csv;charset=utf-8;' });
+      const sampleCsv = `id,serial_number,asset_registry_no,mac_address,private_ip,public_ip,brand,model,category,local_gov_id,district_id,latitude,longitude,elevation_m,azimuth_deg,view_angle_deg,view_range_m,address_ref,installation_site_id,install_point_type_id,camera_function_type_id,purpose_type,status,nvr_name,project_fiscal_year,project_name,install_date,warranty_expiry,stream_url\nSRI-1901-190101-0001,HK-89124-XYZ,ครภ.518-68-0001,E0:50:8B:1A:2C:4F,192.168.1.10,118.172.45.67,Hikvision,DS-2CD21,BULLET,LA-190101,1901,14.527200,100.912500,3.0,120.0,90.0,30.0,สี่แยกตลาดโต้รุ่ง สระบุรี เสาไฟฟ้าหน้าเซเว่น,ROAD_INTERSECTION,AREA_OVERVIEW,GENERAL,TRAFFIC,ONLINE,NVR-Municipal-Office-1,2568,โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน,2024-01-15,2028-12-31,rtsp://admin:pass@192.168.1.10:554/live\n,DH-99120-ABC,ครภ.518-68-0002,F4:4E:05:AA:BB:CC,192.168.1.11,118.172.45.68,Dahua,DH-IPC,PTZ,เทศบาลเมืองสระบุรี,1901,14.532100,100.915200,3.5,45.0,85.0,45.0,หน้า สภ.เมืองสระบุรี เสาทางเข้าหลัก,GOVERNMENT_AGENCY,ENTRANCE_EXIT,PUBLIC_AREA_VIEW,SAFETY,ONLINE,NVR-Municipal-Office-1,2568,โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน,2024-02-01,2028-12-31,`;
+      const blob = new Blob(['\uFEFF' + sampleCsv], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -397,6 +397,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
       addToast('ดาวน์โหลด Template (สำรอง) เรียบร้อย', 'success');
     }
   };
+
 
   const handleImportFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -657,11 +658,18 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
           {canEdit && (
             <>
               <button
-                onClick={handleDownloadTemplate}
+                onClick={() => handleDownloadTemplate('csv')}
                 className="bg-sky-500/10 hover:bg-sky-500/20 text-[#00AEEF] font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-2 border border-[#00AEEF]/30 cursor-pointer transition hover:scale-[1.02]"
-                title="ดาวน์โหลดไฟล์ Template ต้นแบบสำหรับกรอกข้อมูลนำเข้า"
+                title="ดาวน์โหลดไฟล์ Template CSV (คอลัมน์ตรงกับการส่งออก)"
               >
-                <Download className="w-4 h-4 text-[#00AEEF]" /> ดาวน์โหลด Template
+                <Download className="w-4 h-4 text-[#00AEEF]" /> Template CSV
+              </button>
+              <button
+                onClick={() => handleDownloadTemplate('xlsx')}
+                className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-2 border border-emerald-500/30 cursor-pointer transition hover:scale-[1.02]"
+                title="ดาวน์โหลดไฟล์ Template Excel (พร้อมชีต Data Dictionary)"
+              >
+                <Download className="w-4 h-4 text-emerald-400" /> Template Excel
               </button>
               <input
                 ref={importInputRef}
