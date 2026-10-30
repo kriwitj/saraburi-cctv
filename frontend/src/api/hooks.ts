@@ -55,24 +55,24 @@ export function useDashboardSummary(localGovId?: string) {
   return { data, loading, error, refetch };
 }
 
-export function useCameras() {
-  return useApiList<any>('/cameras?limit=1000');
+export function useCameras(enabled: boolean = true) {
+  return useApiList<any>('/cameras?limit=1000', enabled);
 }
 
 export function useUsers(enabled: boolean = true) {
   return useApiList<any>('/admin/users', enabled);
 }
 
-export function useTickets() {
-  return useApiList<any>('/tickets');
+export function useTickets(enabled: boolean = true) {
+  return useApiList<any>('/tickets', enabled);
 }
 
 export function useAuditLogs(enabled: boolean = true) {
   return useApiList<any>('/admin/audit-logs', enabled);
 }
 
-export function useProjects() {
-  return useApiList<any>('/admin/projects');
+export function useProjects(enabled: boolean = true) {
+  return useApiList<any>('/admin/projects', enabled);
 }
 
 export function useDistricts() {

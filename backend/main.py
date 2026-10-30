@@ -25,33 +25,39 @@ models.Base.metadata.create_all(bind=engine)
 # Seeding ข้อมูลลงฐานข้อมูลโดยตรงผ่านแอปพลิเคชัน (แก้ปัญหา Docker Volume ข้ามการรัน 01-init-db.sql)
 db = SessionLocal()
 try:
-    # 1. ตรวจสอบและสร้างผู้ใช้แอดมินเริ่มต้น (อัปเดตรหัสผ่านใหม่เสมอเพื่อป้องกันค่าแฮชเดิมใน Volume ผิดพลาด)
+    # 1. ตรวจสอบและสร้างผู้ใช้แอดมินและบัญชีทดสอบ 6 สิทธิ์ (อัปเดตรหัสผ่านใหม่เสมอเพื่อป้องกันค่าแฮชเดิมใน Volume ผิดพลาด)
     hashed_pwd = crud.get_password_hash("password_123")
     
-    admin_user = db.query(models.User).filter(models.User.username == "srb_super_admin").first()
-    if not admin_user:
-        db.add(models.User(
-            username="srb_super_admin",
-            password_hash=hashed_pwd,
-            full_name="ผู้ดูแลระบบ จังหวัดสระบุรี",
-            role="SUPER_ADMIN",
-            email="cctv_admin@saraburi.go.th"
-        ))
-    else:
-        admin_user.password_hash = hashed_pwd
+    seed_users = [
+        {"username": "srb_super_admin", "full_name": "ผู้ดูแลระบบ จังหวัดสระบุรี", "role": "SUPER_ADMIN", "email": "cctv_admin@saraburi.go.th", "district_id": None, "local_gov_id": None},
+        {"username": "gov_viewer", "full_name": "ผู้ว่าราชการจังหวัดสระบุรี", "role": "GOVERNOR_VIEWER", "email": "governor@saraburi.go.th", "district_id": None, "local_gov_id": None},
+        {"username": "district_1901", "full_name": "นายอำเภอเมืองสระบุรี", "role": "DISTRICT_ADMIN", "email": "district_1901@saraburi.go.th", "district_id": "1901", "local_gov_id": None},
+        {"username": "localgov_la190101", "full_name": "เจ้าหน้าที่ เทศบาลเมืองสระบุรี", "role": "LOCAL_GOV_STAFF", "email": "localgov_la190101@saraburi.go.th", "district_id": "1901", "local_gov_id": "LA-190101"},
+        {"username": "ma_tech", "full_name": "ช่างเทคนิค ผู้รับจ้าง MA", "role": "MA_TECHNICIAN", "email": "tech@srb-service.com", "district_id": None, "local_gov_id": None},
+        {"username": "police_srb", "full_name": "สารวัตรสืบสวน ภ.จว.สระบุรี", "role": "POLICE_VIEWER", "email": "police@saraburi.police.go.th", "district_id": None, "local_gov_id": None},
+    ]
 
-    gov_user = db.query(models.User).filter(models.User.username == "gov_viewer").first()
-    if not gov_user:
-        db.add(models.User(
-            username="gov_viewer",
-            password_hash=hashed_pwd,
-            full_name="ผู้ว่าราชการจังหวัดสระบุรี",
-            role="GOVERNOR_VIEWER",
-            email="governor@saraburi.go.th"
-        ))
-    else:
-        gov_user.password_hash = hashed_pwd
-        
+    for u in seed_users:
+        existing_u = db.query(models.User).filter(models.User.username == u["username"]).first()
+        if not existing_u:
+            db.add(models.User(
+                username=u["username"],
+                password_hash=hashed_pwd,
+                full_name=u["full_name"],
+                role=u["role"],
+                email=u["email"],
+                district_id=u["district_id"],
+                local_gov_id=u["local_gov_id"],
+                is_active=True
+            ))
+        else:
+            existing_u.password_hash = hashed_pwd
+            existing_u.full_name = u["full_name"]
+            existing_u.role = u["role"]
+            existing_u.district_id = u["district_id"]
+            existing_u.local_gov_id = u["local_gov_id"]
+            existing_u.is_active = True
+
     db.commit()
 
     # 2. ตรวจสอบและสร้างประเภท อปท.
@@ -160,18 +166,52 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# ตั้งค่า CORS (กำหนดโดเมนที่อนุญาตผ่าน CORS_ORIGINS เช่น "https://cctv.saraburi.go.th,https://admin.saraburi.go.th")
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
+# ต้องมี SessionMiddleware เพื่อให้ Authlib เก็บ state/nonce ของ OIDC flow ระหว่างการ redirect ไป Keycloak
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "srb_session_secret_key_2026"))
+
+# ตั้งค่า CORS เป็น outermost middleware เพื่อดักจับทุก request/preflight รวมถึงกรณี error
+raw_cors = os.getenv("CORS_ORIGINS", "*")
+configured_origins = [o.strip() for o in raw_cors.split(",") if o.strip()]
+known_origins = [
+    "https://cctv.saraburidev.org",
+    "https://api-cctv.saraburidev.org",
+    "http://cctv.saraburidev.org",
+    "http://api-cctv.saraburidev.org",
+    "https://cctv.saraburi.go.th",
+    "https://admin.saraburi.go.th",
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8000",
+]
+for ko in known_origins:
+    if ko not in configured_origins:
+        configured_origins.append(ko)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
+    allow_origins=configured_origins if "*" not in configured_origins else ["*"],
+    allow_origin_regex=r"^https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=86400,
 )
 
-# ต้องมี SessionMiddleware เพื่อให้ Authlib เก็บ state/nonce ของ OIDC flow ระหว่างการ redirect ไป Keycloak
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "srb_session_secret_key_2026"))
+@app.options("/{full_path:path}")
+async def preflight_handler(full_path: str, request: Request):
+    origin = request.headers.get("origin", "*")
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": origin if origin else "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
 
 # JWT Configuration (โทเค็นภายในระบบ ออกให้หลัง Keycloak ยืนยันตัวตนสำเร็จ)
 SECRET_KEY = os.getenv("JWT_SECRET", "srb_jwt_secret_key_2026_super_secure")
@@ -238,7 +278,25 @@ def verify_super_admin(current_user: models.User = Depends(get_current_user)):
         )
     return current_user
 
-# --- AUTH ENDPOINTS (Keycloak SSO) ---
+# --- AUTH ENDPOINTS (Standard Username/Password & Keycloak SSO) ---
+@app.post("/api/v1/auth/login", response_model=schemas.Token)
+def login_standard(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
+    user = crud.get_user_by_username(db, username=login_data.username)
+    if not user or not crud.verify_password(login_data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ")
+
+    access_token = create_access_token(
+        data={"sub": user.username, "role": user.role},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
 @app.get("/api/v1/auth/keycloak/login")
 async def keycloak_login(request: Request):
     redirect_uri = f"{BACKEND_BASE_URL}/api/v1/auth/keycloak/callback"
@@ -842,6 +900,83 @@ def remove_camera(camera_id: str, db: Session = Depends(get_db), current_user: m
     return {"success": True, "detail": "ลบกล้องสำเร็จ"}
 
 
+# --- DOWNLOAD TEMPLATE ---
+@app.get("/api/v1/cameras/template")
+def download_camera_template(format: str = Query("csv", pattern="^(csv|xlsx)$")):
+    """ดาวน์โหลดไฟล์ต้นแบบ (Template) สำหรับกรอกข้อมูลกล้อง CCTV นำเข้าระบบ"""
+    sample_rows = [
+        {
+            "id": "SRI-1901-190101-0001",
+            "serial_number": "HK-89124-XYZ",
+            "asset_registry_no": "ครภ.518-68-0001",
+            "mac_address": "E0:50:8B:1A:2C:4F",
+            "brand": "Hikvision",
+            "model": "DS-2CD21",
+            "category": "BULLET",
+            "local_gov_id": "LA-190101",
+            "latitude": 14.527200,
+            "longitude": 100.912500,
+            "elevation_m": 3.0,
+            "azimuth": 120,
+            "fov_horizontal": 90.0,
+            "view_range_m": 30.0,
+            "address_ref": "สี่แยกตลาดโต้รุ่ง สระบุรี เสาไฟฟ้าหน้าเซเว่น",
+            "installation_site_id": "ROAD_INTERSECTION",
+            "install_point_type_id": "AREA_OVERVIEW",
+            "camera_function_type_id": "GENERAL",
+            "purpose_type": "TRAFFIC",
+            "status": "ONLINE",
+            "nvr_name": "NVR-Municipal-Office-1",
+            "project_name": "โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน",
+            "warranty_expiry": "2028-12-31"
+        },
+        {
+            "id": "",
+            "serial_number": "DH-99120-ABC",
+            "asset_registry_no": "ครภ.518-68-0002",
+            "mac_address": "F4:4E:05:AA:BB:CC",
+            "brand": "Dahua",
+            "model": "DH-IPC",
+            "category": "PTZ",
+            "local_gov_id": "เทศบาลเมืองสระบุรี",
+            "latitude": 14.532100,
+            "longitude": 100.915200,
+            "elevation_m": 3.5,
+            "azimuth": 45,
+            "fov_horizontal": 85.0,
+            "view_range_m": 45.0,
+            "address_ref": "หน้า สภ.เมืองสระบุรี เสาทางเข้าหลัก",
+            "installation_site_id": "GOVERNMENT_AGENCY",
+            "install_point_type_id": "ENTRANCE_EXIT",
+            "camera_function_type_id": "PUBLIC_AREA_VIEW",
+            "purpose_type": "SAFETY",
+            "status": "ONLINE",
+            "nvr_name": "NVR-Municipal-Office-1",
+            "project_name": "โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน",
+            "warranty_expiry": "2028-12-31"
+        }
+    ]
+    df = pd.DataFrame(sample_rows)
+    if format == "csv":
+        buf = io.StringIO()
+        df.to_csv(buf, index=False, encoding="utf-8-sig")
+        content = buf.getvalue().encode("utf-8-sig")
+        media_type = "text/csv"
+        filename = "sri_cctv_template.csv"
+    else:
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Template")
+        content = buf.getvalue()
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        filename = "sri_cctv_template.xlsx"
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
 # --- BULK IMPORT ---
 @app.post("/api/v1/cameras/import", response_model=schemas.BulkImportSummary)
 def import_cameras_bulk(
@@ -856,18 +991,70 @@ def import_cameras_bulk(
     df = None
     try:
         if file.filename.endswith(".csv"):
-            df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
+            try:
+                df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
+            except UnicodeDecodeError:
+                df = pd.read_csv(io.StringIO(contents.decode('cp874', errors='ignore')))
         else:
             df = pd.read_excel(io.BytesIO(contents))
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"ไม่สามารถเปิดอ่านไฟล์ได้: {str(e)}")
 
-    def cell(row, col, default=""):
-        """pandas leaves empty cells as NaN; row.get(col, default) only falls back to
-        default when the column is missing entirely, not when its value is NaN — so a
-        plain str(row.get(...)) turns a blank cell into the literal text "nan"."""
-        val = row.get(col)
-        return default if pd.isna(val) else str(val).strip()
+    # สร้าง Dictionary สำหรับการจับคู่หน่วยงานเจ้าของ (LocalGovernment)
+    all_local_govs = db.query(models.LocalGovernment).all()
+    gov_by_id = {g.id.strip(): g for g in all_local_govs}
+    gov_by_dla = {g.dla_code.strip(): g for g in all_local_govs if g.dla_code}
+    gov_by_name = {g.name_th.strip(): g for g in all_local_govs if g.name_th}
+
+    # สร้าง Dictionary สำหรับ Lookups อื่นๆ
+    all_sites = {s.id.strip(): s.id for s in db.query(models.InstallationSite).all()}
+    all_sites.update({s.name_th.strip(): s.id for s in db.query(models.InstallationSite).all()})
+
+    all_point_types = {p.id.strip(): p.id for p in db.query(models.InstallPointType).all()}
+    all_point_types.update({p.name_th.strip(): p.id for p in db.query(models.InstallPointType).all()})
+
+    all_func_types = {f.id.strip(): f.id for f in db.query(models.CameraFunctionType).all()}
+    all_func_types.update({f.name_th.strip(): f.id for f in db.query(models.CameraFunctionType).all()})
+
+    purpose_map = {
+        "SAFETY": "SAFETY",
+        "TRAFFIC": "TRAFFIC",
+        "ENVIRONMENT": "ENVIRONMENT",
+        "DISASTER": "DISASTER",
+        "ความปลอดภัย": "SAFETY",
+        "จราจร": "TRAFFIC",
+        "สิ่งแวดล้อม": "ENVIRONMENT",
+        "ป้องกันภัยพิบัติ": "DISASTER",
+    }
+
+    def get_cell(row, aliases, default=None):
+        for alias in aliases:
+            if alias in row:
+                val = row.get(alias)
+                if not pd.isna(val):
+                    s = str(val).strip()
+                    if s and s.lower() != "nan" and s.lower() != "none" and s.lower() != "null":
+                        return s
+        return default
+
+    def parse_float(val, default=0.0):
+        if val is None:
+            return default
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return default
+
+    def parse_date(val):
+        if not val:
+            return None
+        val_str = str(val).strip().split(" ")[0]
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y"):
+            try:
+                return datetime.strptime(val_str, fmt).date()
+            except ValueError:
+                continue
+        return None
 
     errors = []
     imported_count = 0
@@ -875,38 +1062,69 @@ def import_cameras_bulk(
 
     for idx, row in df.iterrows():
         row_num = idx + 2
-        serial = cell(row, "serial_number")
-        brand_name = cell(row, "brand")
-        category = cell(row, "category")
-        raw_id = row.get("id")
-        provided_id = str(raw_id).strip() if not pd.isna(raw_id) and str(raw_id).strip() else None
-        # id ต้องตรงรูปแบบที่ระบบสร้างให้เท่านั้นจึงจะใช้อ้างอิงแถวเดิมเพื่ออัปเดต ถ้าไม่ตรงรูปแบบถือว่าไม่ได้ระบุ id
-        # (ระบบจะสร้าง id ใหม่ให้อัตโนมัติแทน) เพื่อป้องกันผู้ใช้กรอก id เองในไฟล์ import
-        requested_id = provided_id if provided_id and crud.CAMERA_ID_PATTERN.match(provided_id) else None
-        existing_cam = db.query(models.CameraAsset).filter(models.CameraAsset.id == requested_id).first() if requested_id else None
 
-        if existing_cam and current_user.role == "LOCAL_GOV_STAFF" and existing_cam.local_gov_id != current_user.local_gov_id:
-            errors.append(schemas.RowErrorDetail(row=row_num, column="id", error=f"ไม่มีสิทธิ์แก้ไขกล้องรหัส {requested_id} ของหน่วยงานอื่น"))
-            continue
+        # 1. รหัสกล้อง (Asset ID)
+        raw_id = get_cell(row, ["id", "Asset ID", "asset_id", "รหัสกล้อง", "รหัสสินทรัพย์"])
+        provided_id = raw_id if raw_id else None
 
+        # 2. หน่วยงานเจ้าของ (LocalGovernment)
+        gov_raw = get_cell(row, ["local_gov_id", "หน่วยงานเจ้าของ", "หน่วยงาน", "อปท", "อปท.", "organization", "agency", "owner", "dla_code"])
+        target_local_gov = None
+
+        if gov_raw:
+            if gov_raw in gov_by_id:
+                target_local_gov = gov_by_id[gov_raw]
+            elif gov_raw in gov_by_dla:
+                target_local_gov = gov_by_dla[gov_raw]
+            elif gov_raw in gov_by_name:
+                target_local_gov = gov_by_name[gov_raw]
+            else:
+                # ลองค้นหาแบบบางส่วน (partial match)
+                for g_name, g_obj in gov_by_name.items():
+                    if gov_raw in g_name or g_name in gov_raw:
+                        target_local_gov = g_obj
+                        break
+
+        # ถ้าไม่ระบุหรือหาไม่พบ ให้ใช้ตามสังกัดของผู้ใช้ปัจจุบัน หรือค่าเริ่มต้น
+        if not target_local_gov:
+            if current_user.local_gov_id and current_user.local_gov_id in gov_by_id:
+                target_local_gov = gov_by_id[current_user.local_gov_id]
+            elif all_local_govs:
+                target_local_gov = all_local_govs[0]
+
+        target_local_gov_id = target_local_gov.id if target_local_gov else "LA-190101"
+
+        # 3. ตรวจสอบการอัปเดตข้อมูลเดิม หรือรันเลขใหม่
+        existing_cam = None
+        if provided_id:
+            existing_cam = db.query(models.CameraAsset).filter(models.CameraAsset.id == provided_id).first()
+
+        if existing_cam:
+            # ตรวจสอบสิทธิ์เจ้าหน้าที่ อปท. ว่าสามารถแก้ไขได้เฉพาะของหน่วยงานตน
+            if current_user.role == "LOCAL_GOV_STAFF" and existing_cam.local_gov_id != current_user.local_gov_id:
+                errors.append(schemas.RowErrorDetail(row=row_num, column="id", error=f"ไม่มีสิทธิ์แก้ไขกล้องรหัส {provided_id} ของหน่วยงานอื่น"))
+                continue
+            cam_id = existing_cam.id
+        else:
+            # หากไม่มีรหัส หรือไม่ตรงกับข้อมูลเดิมในระบบ ให้รันเลขใหม่โดยใช้ข้อมูลหน่วยงานเจ้าของ
+            cam_id = crud.generate_camera_id(db, target_local_gov_id)
+
+        # 4. พิกัดละติจูดและลองจิจูด
+        lat_raw = get_cell(row, ["latitude", "lat", "ละติจูด"])
+        lng_raw = get_cell(row, ["longitude", "lng", "lon", "ลองจิจูด"])
         try:
-            lat = float(row.get("latitude"))
+            lat = float(lat_raw)
+            lng = float(lng_raw)
         except (TypeError, ValueError):
-            errors.append(schemas.RowErrorDetail(row=row_num, column="latitude", error="พิกัดละติจูดต้องเป็นตัวเลข"))
-            continue
-        if not (14.20 <= lat <= 15.10):
-            errors.append(schemas.RowErrorDetail(row=row_num, column="latitude", error="พิกัดละติจูดต้องอยู่ภายในขอบเขตสระบุรี"))
+            errors.append(schemas.RowErrorDetail(row=row_num, column="coordinate", error="พิกัดละติจูดและลองจิจูดต้องเป็นตัวเลขที่ถูกต้อง"))
             continue
 
-        try:
-            lng = float(row.get("longitude"))
-        except (TypeError, ValueError):
-            errors.append(schemas.RowErrorDetail(row=row_num, column="longitude", error="พิกัดลองจิจูดต้องเป็นตัวเลข"))
-            continue
-        if not (100.50 <= lng <= 101.60):
-            errors.append(schemas.RowErrorDetail(row=row_num, column="longitude", error="พิกัดลองจิจูดต้องอยู่ภายในขอบเขตสระบุรี"))
+        if not (14.20 <= lat <= 15.10) or not (100.50 <= lng <= 101.60):
+            errors.append(schemas.RowErrorDetail(row=row_num, column="coordinate", error="พิกัดต้องอยู่ภายในขอบเขตจังหวัดสระบุรี (lat: 14.20-15.10, lng: 100.50-101.60)"))
             continue
 
+        # 5. ยี่ห้อและรุ่น (Brand & Catalog)
+        brand_name = get_cell(row, ["brand", "ยี่ห้อ", "ยี่ห้อกล้อง"], default="Hikvision")
         db_brand = db.query(models.DeviceBrand).filter(models.DeviceBrand.name.ilike(brand_name)).first()
         if not db_brand:
             db_brand = models.DeviceBrand(name=brand_name)
@@ -914,53 +1132,112 @@ def import_cameras_bulk(
             db.commit()
             db.refresh(db_brand)
 
-        model_name = cell(row, "model", "DefaultModel")
+        model_name = get_cell(row, ["model", "รุ่น"], default="DefaultModel")
+        category_raw = get_cell(row, ["category", "ประเภทกล้อง", "หมวดหมู่"], default="FIXED").upper()
+        valid_cats = ["FIXED", "PTZ", "ANPR", "DOME", "BULLET"]
+        category = category_raw if category_raw in valid_cats else "FIXED"
+
         db_cat = db.query(models.DeviceCatalog).filter(
             models.DeviceCatalog.brand_id == db_brand.id,
             models.DeviceCatalog.model == model_name
         ).first()
-
         if not db_cat:
             db_cat = models.DeviceCatalog(
                 brand_id=db_brand.id,
                 model=model_name,
-                category_id=category if category in ["FIXED", "PTZ", "ANPR", "DOME", "BULLET"] else "FIXED",
+                category_id=category,
                 resolution="4MP"
             )
             db.add(db_cat)
             db.commit()
             db.refresh(db_cat)
 
-        if existing_cam:
-            cam_id = existing_cam.id
-            local_gov_id = existing_cam.local_gov_id
-        else:
-            local_gov_id = current_user.local_gov_id if current_user.local_gov_id else "LA-190101"
-            cam_id = crud.generate_camera_id(db, local_gov_id)
+        # 6. ระบบ NVR/VMS
+        nvr_name = get_cell(row, ["nvr_name", "nvr_vms_id", "NVR", "ระบบ NVR/VMS"])
+        target_nvr_id = None
+        if nvr_name:
+            if nvr_name.isdigit():
+                target_nvr_id = int(nvr_name)
+            else:
+                db_nvr = db.query(models.NvrVmsSystem).filter(
+                    models.NvrVmsSystem.name.ilike(nvr_name),
+                    models.NvrVmsSystem.local_gov_id == target_local_gov_id
+                ).first()
+                if not db_nvr:
+                    db_nvr = models.NvrVmsSystem(name=nvr_name, local_gov_id=target_local_gov_id)
+                    db.add(db_nvr)
+                    db.commit()
+                    db.refresh(db_nvr)
+                target_nvr_id = db_nvr.id
 
-        status_val = cell(row, "status", "ONLINE").upper() or "ONLINE"
+        # 7. โครงการจัดซื้อจัดหา (Project)
+        proj_name = get_cell(row, ["project_name", "project_id", "โครงการ", "โครงการจัดซื้อ"])
+        target_proj_id = None
+        if proj_name:
+            if proj_name.isdigit():
+                target_proj_id = int(proj_name)
+            else:
+                db_proj = db.query(models.PurchaseProject).filter(models.PurchaseProject.name.ilike(proj_name)).first()
+                if not db_proj:
+                    fiscal_yr = int(get_cell(row, ["project_fiscal_year", "ปีงบประมาณ"], default="2568"))
+                    db_proj = models.PurchaseProject(
+                        name=proj_name,
+                        fiscal_year=fiscal_yr,
+                        budget_source="งบ อปท.",
+                        budget_allocated=0.0,
+                        contract_amount=0.0
+                    )
+                    db.add(db_proj)
+                    db.commit()
+                    db.refresh(db_proj)
+                target_proj_id = db_proj.id
 
+        # 8. ฟิลด์เสริมต่างๆ (จุดติดตั้ง, ประเภทจุดติดตั้ง, จุดมุ่งหมายหลัก)
+        site_raw = get_cell(row, ["installation_site_id", "จุดติดตั้ง", "ประเภทพื้นที่"])
+        site_id = all_sites.get(site_raw) if site_raw else None
+
+        pt_raw = get_cell(row, ["install_point_type_id", "ประเภทจุดติดตั้ง"])
+        point_type_id = all_point_types.get(pt_raw) if pt_raw else None
+
+        func_raw = get_cell(row, ["camera_function_type_id", "รายละเอียดประเภทกล้อง", "ฟังก์ชันกล้อง"])
+        func_type_id = all_func_types.get(func_raw) if func_raw else None
+
+        purpose_raw = get_cell(row, ["purpose_type", "จุดมุ่งหมายหลัก", "วัตถุประสงค์"], default="SAFETY")
+        purpose_type = purpose_map.get(purpose_raw, "SAFETY")
+
+        status_raw = get_cell(row, ["status", "สถานะ"], default="ONLINE").upper()
+        status_val = status_raw if status_raw in ["ONLINE", "OFFLINE", "MAINTENANCE", "REMOVED", "PENDING_INSTALL"] else "ONLINE"
+
+        # 9. บันทึกข้อมูลกล้อง (Upsert)
         try:
             payload = schemas.CameraAssetCreate(
                 id=cam_id,
-                serial_number=serial,
-                asset_registry_no=cell(row, "asset_registry_no", None),
-                mac_address=cell(row, "mac_address", None),
-                private_ip=cell(row, "private_ip", None),
-                public_ip=cell(row, "public_ip", None),
+                serial_number=get_cell(row, ["serial_number", "serial", "หมายเลขซีเรียล"]),
+                asset_registry_no=get_cell(row, ["asset_registry_no", "เลขครุภัณฑ์", "ครุภัณฑ์"]),
+                mac_address=get_cell(row, ["mac_address", "mac", "MAC Address"]),
+                private_ip=get_cell(row, ["private_ip", "Private IP"]),
+                public_ip=get_cell(row, ["public_ip", "Public IP"]),
                 catalog_id=db_cat.id,
-                local_gov_id=local_gov_id,
+                local_gov_id=target_local_gov_id,
+                nvr_vms_id=target_nvr_id,
+                project_id=target_proj_id,
                 latitude=lat,
                 longitude=lng,
-                elevation_m=float(row.get("elevation_m", 3.0)) if not pd.isna(row.get("elevation_m")) else 3.0,
-                azimuth_deg=float(row.get("azimuth", 0.0)) if not pd.isna(row.get("azimuth")) else 0.0,
-                address_ref=cell(row, "address_ref", "ไม่ระบุที่อยู่"),
-                installation_site_id=cell(row, "installation_site_id", None),
-                install_point_type_id=cell(row, "install_point_type_id", None),
-                camera_function_type_id=cell(row, "camera_function_type_id", None),
-                purpose_type=cell(row, "purpose_type", "SAFETY"),
-                status=status_val
+                elevation_m=parse_float(get_cell(row, ["elevation_m", "ความสูง"]), default=3.0),
+                azimuth_deg=parse_float(get_cell(row, ["azimuth", "azimuth_deg", "ทิศ"]), default=0.0),
+                view_angle_deg=parse_float(get_cell(row, ["fov_horizontal", "view_angle_deg", "มุมมอง"]), default=90.0),
+                view_range_m=parse_float(get_cell(row, ["view_range_m", "ระยะมองเห็น"]), default=30.0),
+                address_ref=get_cell(row, ["address_ref", "สถานที่ติดตั้ง", "ที่อยู่"], default="ไม่ระบุสถานที่ติดตั้ง"),
+                installation_site_id=site_id,
+                install_point_type_id=point_type_id,
+                camera_function_type_id=func_type_id,
+                purpose_type=purpose_type,
+                status=status_val,
+                install_date=parse_date(get_cell(row, ["install_date", "วันที่ติดตั้ง"])),
+                warranty_expiry=parse_date(get_cell(row, ["warranty_expiry", "วันหมดประกัน"])),
+                stream_url=get_cell(row, ["stream_url", "URL สตรีม", "rtsp"])
             )
+
             if existing_cam:
                 crud.update_camera(db, cam_id, payload)
             else:
@@ -972,7 +1249,13 @@ def import_cameras_bulk(
 
     crud.create_audit_log(
         db,
-        schemas.AuditLogCreate(action="IMPORT_ASSETS", target_type="CAMERA", target_id=file.filename, client_ip="127.0.0.1", reason=f"นำเข้าข้อมูลกล้องแบบชุด {imported_count} ตัวสำเร็จ"),
+        schemas.AuditLogCreate(
+            action="IMPORT_ASSETS", 
+            target_type="CAMERA", 
+            target_id=file.filename, 
+            client_ip="127.0.0.1", 
+            reason=f"นำเข้าข้อมูลกล้องแบบชุดสำเร็จ {imported_count} รายการ, ล้มเหลว {len(errors)} รายการ"
+        ),
         username=current_user.username,
         user_id=current_user.id
     )

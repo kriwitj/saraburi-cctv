@@ -15,6 +15,12 @@ CAMERA_ID_PATTERN = re.compile(r"^SRI-[A-Za-z0-9]+-[A-Za-z0-9]+-\d{4}$")
 def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except Exception:
+        return False
+
 # --- USER CRUD ---
 def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
@@ -539,8 +545,25 @@ def generate_camera_id(db: Session, local_gov_id: str) -> str:
     gov = db.query(models.LocalGovernment).filter(models.LocalGovernment.id == local_gov_id).first()
     district_code = gov.district_id if gov else "0000"
     org_code = local_gov_id.split("-", 1)[1] if "-" in local_gov_id else local_gov_id
-    count = db.query(models.CameraAsset).filter(models.CameraAsset.local_gov_id == local_gov_id).count()
-    return f"SRI-{district_code}-{org_code}-{count + 1:04d}"
+    prefix = f"SRI-{district_code}-{org_code}-"
+    
+    # ดึงรายการรหัสกล้องทั้งหมดที่ขึ้นต้นด้วย prefix นี้เพื่อหาเลขลำดับสูงสุด
+    matching_cams = db.query(models.CameraAsset.id).filter(models.CameraAsset.id.like(f"{prefix}%")).all()
+    max_seq = 0
+    for (c_id,) in matching_cams:
+        suffix = c_id[len(prefix):]
+        if suffix.isdigit():
+            max_seq = max(max_seq, int(suffix))
+            
+    new_seq = max_seq + 1
+    new_id = f"{prefix}{new_seq:04d}"
+    
+    # ตรวจสอบซ้ำเพื่อป้องกันการชนกับรหัสเดิมในทุกกรณี
+    while db.query(models.CameraAsset).filter(models.CameraAsset.id == new_id).first():
+        new_seq += 1
+        new_id = f"{prefix}{new_seq:04d}"
+        
+    return new_id
 
 def create_camera(db: Session, camera: schemas.CameraAssetCreate):
     wkt_point = f"POINT({camera.longitude} {camera.latitude})"
@@ -557,16 +580,16 @@ def create_camera(db: Session, camera: schemas.CameraAssetCreate):
         nvr_vms_id=camera.nvr_vms_id,
         project_id=camera.project_id,
         location_point=func.ST_GeomFromText(wkt_point, 4326),
-        elevation_m=camera.elevation_m,
-        azimuth_deg=camera.azimuth_deg,
-        view_angle_deg=camera.view_angle_deg,
-        view_range_m=camera.view_range_m,
+        elevation_m=camera.elevation_m if camera.elevation_m is not None else 3.0,
+        azimuth_deg=camera.azimuth_deg if camera.azimuth_deg is not None else 0.0,
+        view_angle_deg=camera.view_angle_deg if camera.view_angle_deg is not None else 90.0,
+        view_range_m=camera.view_range_m if camera.view_range_m is not None else 30.0,
         address_ref=camera.address_ref,
-        installation_site_id=camera.installation_site_id,
-        install_point_type_id=camera.install_point_type_id,
-        camera_function_type_id=camera.camera_function_type_id,
-        purpose_type=camera.purpose_type,
-        status=camera.status,
+        installation_site_id=camera.installation_site_id or None,
+        install_point_type_id=camera.install_point_type_id or None,
+        camera_function_type_id=camera.camera_function_type_id or None,
+        purpose_type=camera.purpose_type or "SAFETY",
+        status=camera.status or "PENDING_INSTALL",
         install_date=camera.install_date,
         warranty_expiry=camera.warranty_expiry,
         photo_site_url=camera.photo_site_url,
@@ -605,11 +628,11 @@ def update_camera(db: Session, camera_id: str, camera: schemas.CameraAssetCreate
         db_camera.view_angle_deg = camera.view_angle_deg
         db_camera.view_range_m = camera.view_range_m
         db_camera.address_ref = camera.address_ref
-        db_camera.installation_site_id = camera.installation_site_id
-        db_camera.install_point_type_id = camera.install_point_type_id
-        db_camera.camera_function_type_id = camera.camera_function_type_id
-        db_camera.purpose_type = camera.purpose_type
-        db_camera.status = camera.status
+        db_camera.installation_site_id = camera.installation_site_id or None
+        db_camera.install_point_type_id = camera.install_point_type_id or None
+        db_camera.camera_function_type_id = camera.camera_function_type_id or None
+        db_camera.purpose_type = camera.purpose_type or db_camera.purpose_type or "SAFETY"
+        db_camera.status = camera.status or db_camera.status or "PENDING_INSTALL"
         db_camera.install_date = camera.install_date
         db_camera.warranty_expiry = camera.warranty_expiry
         db_camera.photo_site_url = camera.photo_site_url

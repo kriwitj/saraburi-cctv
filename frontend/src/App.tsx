@@ -45,6 +45,17 @@ export default function App() {
     }, 4500);
   };
 
+  // Synchronize dark/light theme class on root element
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    }
+  }, [isDarkMode]);
+
   // Restore session from a stored JWT so a page refresh doesn't force a re-login
   useEffect(() => {
     const token = localStorage.getItem('srb_token');
@@ -60,12 +71,12 @@ export default function App() {
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
 
-  // API-backed data — replaces the old in-memory mock arrays
-  const camerasApi = useCameras();
+  // API-backed data — only fetch when authenticated
+  const camerasApi = useCameras(!!currentUser);
   const usersApi = useUsers(!!currentUser);
-  const ticketsApi = useTickets();
+  const ticketsApi = useTickets(!!currentUser);
   const auditLogsApi = useAuditLogs(isSuperAdmin);
-  const projectsApi = useProjects();
+  const projectsApi = useProjects(!!currentUser);
 
   // Re-fetch every scoped dataset whenever the logged-in account changes (login/switch user),
   // otherwise a different user briefly sees the previous account's cached, differently-scoped data.
@@ -125,7 +136,7 @@ export default function App() {
         <Route
           path="/login"
           element={
-            currentUser ? <Navigate to="/dashboard" replace /> : <Login />
+            currentUser ? <Navigate to="/dashboard" replace /> : <Login onLoginSuccess={(user) => setCurrentUser(user)} addToast={addToast} />
           }
         />
 

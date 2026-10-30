@@ -273,6 +273,37 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await apiClient.get('/cameras/template', {
+        params: { format: 'csv' },
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'sri_cctv_template.csv';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      addToast('ดาวน์โหลด Template นำเข้าข้อมูลกล้องสำเร็จ', 'success');
+    } catch (err: any) {
+      // Fallback: download client-side template if backend request fails
+      const sampleCsv = `id,local_gov_id,serial_number,asset_registry_no,mac_address,brand,model,category,latitude,longitude,elevation_m,azimuth,fov_horizontal,view_range_m,address_ref,installation_site_id,install_point_type_id,camera_function_type_id,purpose_type,status,nvr_name,project_name,warranty_expiry\\nSRI-1901-190101-0001,LA-190101,HK-89124-XYZ,ครภ.518-68-0001,E0:50:8B:1A:2C:4F,Hikvision,DS-2CD21,BULLET,14.527200,100.912500,3.0,120,90.0,30.0,สี่แยกตลาดโต้รุ่ง สระบุรี,ROAD_INTERSECTION,AREA_OVERVIEW,GENERAL,TRAFFIC,ONLINE,NVR-Office-1,โครงการจัดซื้อกล้อง,2028-12-31\\n,เทศบาลเมืองสระบุรี,DH-99120-ABC,ครภ.518-68-0002,F4:4E:05:AA:BB:CC,Dahua,DH-IPC,PTZ,14.532100,100.915200,3.5,45,85.0,45.0,หน้า สภ.เมืองสระบุรี,GOVERNMENT_AGENCY,ENTRANCE_EXIT,PUBLIC_AREA_VIEW,SAFETY,ONLINE,NVR-Office-1,โครงการจัดซื้อกล้อง,2028-12-31`;
+      const blob = new Blob([sampleCsv.replace(/\\\\n/g, '\\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'sri_cctv_template.csv';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      addToast('ดาวน์โหลด Template (สำรอง) เรียบร้อย', 'success');
+    }
+  };
+
   const handleImportFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -301,6 +332,22 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
 
   const renderFormFields = () => (
     <div className="flex flex-col gap-4 max-h-[65vh] overflow-y-auto pr-1">
+      {/* 1. รหัสกล้อง (Asset ID) แสดงสถานะ auto-generate */}
+      <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-sky-500/10 border border-sky-500/20">
+        <label className="text-xs font-bold text-[#00AEEF] flex items-center justify-between">
+          <span>รหัสกล้อง (Asset ID)</span>
+          <span className="text-[10px] font-normal text-sky-300">
+            {editingCam ? 'โหมดแก้ไข (อ้างอิงรหัสเดิม)' : 'ระบบสร้างรันเลขอัตโนมัติตามหน่วยงานเจ้าของ (ไม่ต้องกรอก)'}
+          </span>
+        </label>
+        <input
+          type="text"
+          value={editingCam ? editingCam.id : 'ระบบจะสร้างรันเลขอัตโนมัติ (เช่น SRI-1901-190101-0001) โดยใช้ข้อมูลหน่วยงานเจ้าของ'}
+          disabled
+          className="bg-black/20 border border-white/10 rounded-lg p-2.5 text-xs text-sky-200 cursor-not-allowed opacity-80"
+        />
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs text-slate-400">หมายเลขซีเรียล</label>
@@ -408,23 +455,23 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-slate-400">จุดติดตั้ง<RequiredMark /></label>
+          <label className="text-xs text-slate-400">จุดติดตั้ง</label>
           <SearchableSelect
             value={form.installation_site_id}
             onChange={(v) => setForm(prev => ({ ...prev, installation_site_id: v }))}
             options={installationSitesApi.data.map((s: any) => ({ value: s.id, label: s.name_th }))}
-            placeholder="-- เลือกจุดติดตั้ง --"
-            required
+            placeholder="-- ไม่ระบุ --"
+            emptyLabel="-- ไม่ระบุ --"
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-slate-400">ประเภทจุดติดตั้ง<RequiredMark /></label>
+          <label className="text-xs text-slate-400">ประเภทจุดติดตั้ง</label>
           <SearchableSelect
             value={form.install_point_type_id}
             onChange={(v) => setForm(prev => ({ ...prev, install_point_type_id: v }))}
             options={installPointTypesApi.data.map((t: any) => ({ value: t.id, label: t.name_th }))}
-            placeholder="-- เลือกประเภทจุดติดตั้ง --"
-            required
+            placeholder="-- ไม่ระบุ --"
+            emptyLabel="-- ไม่ระบุ --"
           />
         </div>
       </div>
@@ -441,12 +488,13 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-slate-400">จุดมุ่งหมายหลัก<RequiredMark /></label>
+          <label className="text-xs text-slate-400">จุดมุ่งหมายหลัก</label>
           <SearchableSelect
             value={form.purpose_type}
             onChange={(v) => setForm(prev => ({ ...prev, purpose_type: v }))}
             options={PURPOSE_TYPES}
-            required
+            placeholder="-- ไม่ระบุ (ความปลอดภัย) --"
+            emptyLabel="-- ไม่ระบุ (ความปลอดภัย) --"
           />
         </div>
       </div>
@@ -514,6 +562,13 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
           </button>
           {canEdit && (
             <>
+              <button
+                onClick={handleDownloadTemplate}
+                className="bg-sky-500/10 hover:bg-sky-500/20 text-[#00AEEF] font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-2 border border-[#00AEEF]/30 cursor-pointer transition hover:scale-[1.02]"
+                title="ดาวน์โหลดไฟล์ Template ต้นแบบสำหรับกรอกข้อมูลนำเข้า"
+              >
+                <Download className="w-4 h-4 text-[#00AEEF]" /> ดาวน์โหลด Template
+              </button>
               <input
                 ref={importInputRef}
                 type="file"

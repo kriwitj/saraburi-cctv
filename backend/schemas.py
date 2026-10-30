@@ -8,6 +8,10 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
 class TokenData(BaseModel):
     username: Optional[str] = None
     role: Optional[str] = None
@@ -57,7 +61,7 @@ class CameraAssetBase(BaseModel):
     installation_site_id: Optional[str] = None
     install_point_type_id: Optional[str] = None
     camera_function_type_id: Optional[str] = None
-    purpose_type: str
+    purpose_type: Optional[str] = "SAFETY"
     status: Optional[str] = "PENDING_INSTALL"
     install_date: Optional[date] = None
     warranty_expiry: Optional[date] = None
@@ -93,7 +97,7 @@ class CameraAssetOut(BaseModel):
     installation_site_id: Optional[str] = None
     install_point_type_id: Optional[str] = None
     camera_function_type_id: Optional[str] = None
-    purpose_type: str
+    purpose_type: Optional[str] = "SAFETY"
     status: str
     install_date: Optional[date] = None
     warranty_expiry: Optional[date] = None
