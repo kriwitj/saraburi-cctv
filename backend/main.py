@@ -954,6 +954,92 @@ def bulk_remove_cameras(
         message=msg
     )
 
+@app.post("/api/v1/cameras/bulk-status", response_model=schemas.CameraBulkStatusUpdateResponse)
+def bulk_update_camera_status(
+    req: schemas.CameraBulkStatusUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if current_user.role not in ["SUPER_ADMIN", "LOCAL_GOV_STAFF"]:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์แก้ไขสถานะกล้อง")
+
+    if not req.ids:
+        raise HTTPException(status_code=400, detail="กรุณาระบุรหัสกล้องที่ต้องการเปลี่ยนสถานะอย่างน้อย 1 รายการ")
+
+    valid_statuses = ["ONLINE", "OFFLINE", "MAINTENANCE", "PENDING_INSTALL", "REMOVED"]
+    if req.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"สถานะไม่ถูกต้อง กรุณาเลือก: {', '.join(valid_statuses)}")
+
+    status_th_map = {
+        "ONLINE": "พร้อมใช้งาน (ONLINE)",
+        "OFFLINE": "ชำรุด/ขัดข้อง (OFFLINE)",
+        "MAINTENANCE": "อยู่ระหว่างซ่อม (MAINTENANCE)",
+        "PENDING_INSTALL": "รอติดตั้ง (PENDING INSTALL)",
+        "REMOVED": "ปลดประจำการ/ลบแล้ว (REMOVED)",
+    }
+    status_th = status_th_map.get(req.status, req.status)
+
+    updated_count = 0
+    failed_ids = []
+
+    for cam_id in req.ids:
+        db_cam = crud.get_camera(db, cam_id)
+        if not db_cam:
+            failed_ids.append(cam_id)
+            continue
+
+        if current_user.role == "LOCAL_GOV_STAFF" and db_cam.local_gov_id != current_user.local_gov_id:
+            failed_ids.append(cam_id)
+            continue
+
+        db_cam.status = req.status
+        updated_count += 1
+
+        crud.create_audit_log(
+            db,
+            schemas.AuditLogCreate(
+                action="BULK_UPDATE_CAMERA_STATUS",
+                target_type="CAMERA",
+                target_id=cam_id,
+                client_ip="127.0.0.1",
+                reason=f"เปลี่ยนสถานะกล้องแบบกลุ่มเป็น '{status_th}' โดย {current_user.username}"
+            ),
+            username=current_user.username,
+            user_id=current_user.id
+        )
+
+    db.commit()
+
+    msg = f"ปรับเปลี่ยนสถานะกล้องเป็น '{status_th}' สำเร็จ {updated_count} รายการ"
+    if failed_ids:
+        msg += f" (ล้มเหลวหรือไม่ได้รับสิทธิ์ {len(failed_ids)} รายการ)"
+
+    return schemas.CameraBulkStatusUpdateResponse(
+        success=(updated_count > 0 or len(failed_ids) == 0),
+        updated_count=updated_count,
+        failed_count=len(failed_ids),
+        failed_ids=failed_ids,
+        message=msg
+    )
+
+
+@app.get("/api/v1/public/stats", response_model=schemas.PublicLandingStats)
+def get_public_landing_stats(db: Session = Depends(get_db)):
+    """สถิติภาพรวมสำหรับแสดงบนหน้า Landing Page (ไม่ต้องล็อกอิน)"""
+    total_cameras = db.query(models.CameraAsset).filter(models.CameraAsset.status != "REMOVED").count()
+    online_cameras = db.query(models.CameraAsset).filter(models.CameraAsset.status == "ONLINE").count()
+    offline_cameras = db.query(models.CameraAsset).filter(models.CameraAsset.status.in_(["OFFLINE", "MAINTENANCE"])).count()
+    
+    total_budget_row = db.query(func.coalesce(func.sum(models.PurchaseProject.budget_allocated), 0)).scalar()
+    total_budget = float(total_budget_row) if total_budget_row else 0.0
+
+    return schemas.PublicLandingStats(
+        total_cameras=total_cameras,
+        online_cameras=online_cameras,
+        offline_cameras=offline_cameras,
+        total_budget=total_budget
+    )
+
 
 # --- DOWNLOAD TEMPLATE ---
 @app.get("/api/v1/cameras/template")

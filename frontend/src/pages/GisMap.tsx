@@ -9,11 +9,11 @@ import { SARABURI_BOUNDARY } from '../data/saraburiBoundary';
 const WORLD_MASK_RING: [number, number][] = [[85, -180], [85, 180], [-85, 180], [-85, -180]];
 
 const STATUS_OPTIONS = [
-  { value: 'PENDING_INSTALL', label: 'PENDING_INSTALL' },
-  { value: 'ONLINE', label: 'ONLINE' },
-  { value: 'OFFLINE', label: 'OFFLINE' },
-  { value: 'MAINTENANCE', label: 'MAINTENANCE' },
-  { value: 'REMOVED', label: 'REMOVED' },
+  { value: 'ONLINE', label: 'พร้อมใช้งาน (ONLINE)' },
+  { value: 'OFFLINE', label: 'ชำรุด/ขัดข้อง (OFFLINE)' },
+  { value: 'MAINTENANCE', label: 'อยู่ระหว่างซ่อม (MAINTENANCE)' },
+  { value: 'PENDING_INSTALL', label: 'รอติดตั้ง (PENDING INSTALL)' },
+  { value: 'REMOVED', label: 'ปลดประจำการ/ลบแล้ว (REMOVED)' },
 ];
 
 interface CameraItem {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Search, AlertOctagon, Download, Upload, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Search, AlertOctagon, Download, Upload, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Trash2, Loader2, RefreshCw } from 'lucide-react';
 import { apiClient, extractErrorMessage } from '../api/client';
 import {
   useDeviceBrands, useDeviceCatalog, useLocalGovernments, useNvrVmsSystems, useProjects,
@@ -51,12 +51,28 @@ const emptyForm = {
   stream_url: '',
 };
 
+export const STATUS_LABELS: Record<string, string> = {
+  ONLINE: 'พร้อมใช้งาน (ONLINE)',
+  OFFLINE: 'ชำรุด/ขัดข้อง (OFFLINE)',
+  MAINTENANCE: 'อยู่ระหว่างซ่อม (MAINTENANCE)',
+  PENDING_INSTALL: 'รอติดตั้ง (PENDING INSTALL)',
+  REMOVED: 'ปลดประจำการ/ลบแล้ว (REMOVED)',
+};
+
+export const STATUS_SHORT_LABELS: Record<string, string> = {
+  ONLINE: 'พร้อมใช้งาน',
+  OFFLINE: 'ชำรุด/ขัดข้อง',
+  MAINTENANCE: 'อยู่ระหว่างซ่อม',
+  PENDING_INSTALL: 'รอติดตั้ง',
+  REMOVED: 'ลบแล้ว',
+};
+
 const STATUS_OPTIONS = [
-  { value: 'PENDING_INSTALL', label: 'PENDING_INSTALL' },
-  { value: 'ONLINE', label: 'ONLINE' },
-  { value: 'OFFLINE', label: 'OFFLINE' },
-  { value: 'MAINTENANCE', label: 'MAINTENANCE' },
-  { value: 'REMOVED', label: 'REMOVED' },
+  { value: 'ONLINE', label: 'พร้อมใช้งาน (ONLINE)' },
+  { value: 'OFFLINE', label: 'ชำรุด/ขัดข้อง (OFFLINE)' },
+  { value: 'MAINTENANCE', label: 'อยู่ระหว่างซ่อม (MAINTENANCE)' },
+  { value: 'PENDING_INSTALL', label: 'รอติดตั้ง (PENDING INSTALL)' },
+  { value: 'REMOVED', label: 'ปลดประจำการ/ลบแล้ว (REMOVED)' },
 ];
 
 // แท็บ "ใช้งานอยู่" ไม่รวมสถานะ REMOVED อยู่แล้ว จึงตัดออกจากตัวกรองสถานะเพื่อไม่ให้ซ้ำซ้อนกับแท็บ
@@ -93,6 +109,9 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
   const [selectedCameraIds, setSelectedCameraIds] = useState<string[]>([]);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkStatusModalOpen, setIsBulkStatusModalOpen] = useState(false);
+  const [bulkTargetStatus, setBulkTargetStatus] = useState('ONLINE');
+  const [isBulkStatusUpdating, setIsBulkStatusUpdating] = useState(false);
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<typeof emptyForm>(emptyForm);
   const nvrVmsApi = useNvrVmsSystems(form.local_gov_id || undefined);
@@ -241,6 +260,25 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
 
   const clearSelection = () => {
     setSelectedCameraIds([]);
+  };
+
+  const handleBulkStatusUpdate = async () => {
+    if (selectedCameraIds.length === 0) return;
+    setIsBulkStatusUpdating(true);
+    try {
+      const res = await apiClient.post('/cameras/bulk-status', {
+        ids: selectedCameraIds,
+        status: bulkTargetStatus,
+      });
+      addToast(res.data?.message || `ปรับเปลี่ยนสถานะกล้องสำเร็จ ${res.data?.updated_count || selectedCameraIds.length} รายการ`, 'success');
+      setSelectedCameraIds([]);
+      setIsBulkStatusModalOpen(false);
+      refetchCameras();
+    } catch (err: any) {
+      addToast(extractErrorMessage(err, 'ปรับเปลี่ยนสถานะกล้องแบบกลุ่มไม่สำเร็จ'), 'error');
+    } finally {
+      setIsBulkStatusUpdating(false);
+    }
   };
 
   const handleBulkDelete = async () => {
@@ -750,6 +788,14 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
               </button>
               <button
                 type="button"
+                onClick={() => { setBulkTargetStatus('ONLINE'); setIsBulkStatusModalOpen(true); }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#00AEEF] hover:bg-[#0096ce] text-white shadow-md shadow-[#00AEEF]/20 transition cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                เปลี่ยนสถานะ ({selectedCameraIds.length})
+              </button>
+              <button
+                type="button"
                 onClick={() => setIsBulkDeleteModalOpen(true)}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/30 transition cursor-pointer"
               >
@@ -822,9 +868,12 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
                         c.status === 'ONLINE' ? 'bg-emerald-400' :
-                        c.status === 'OFFLINE' ? 'bg-red-400' : 'bg-amber-400'
+                        c.status === 'OFFLINE' ? 'bg-red-400' :
+                        c.status === 'MAINTENANCE' ? 'bg-amber-400' :
+                        c.status === 'PENDING_INSTALL' ? 'bg-blue-400' :
+                        'bg-slate-400'
                       }`}></span>
-                      {c.status}
+                      {STATUS_SHORT_LABELS[c.status] || c.status}
                     </span>
                   </td>
                   {canEdit && (
@@ -968,6 +1017,117 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
             )}
             <div className="flex justify-end pt-4 mt-2 border-t border-white/5">
               <button onClick={() => setImportSummary(null)} className="bg-white/5 hover:bg-white/10 text-slate-400 py-2 px-4 rounded-lg text-xs cursor-pointer">ปิดหน้าต่าง</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BULK STATUS UPDATE MODAL */}
+      {isBulkStatusModalOpen && (
+        <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md p-4">
+          <div className="bg-[#0f1525] border border-[#00AEEF]/30 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+            <div className="flex items-center gap-3 text-[#00AEEF] mb-3">
+              <div className="p-2.5 rounded-xl bg-[#00AEEF]/10 border border-[#00AEEF]/20">
+                <RefreshCw className="w-6 h-6 text-[#00AEEF]" />
+              </div>
+              <div>
+                <h4 className="font-bold text-base text-white">เปลี่ยนสถานะกล้องวงจรปิดแบบกลุ่ม</h4>
+                <p className="text-xs text-[#00AEEF]">การดำเนินการนี้จะส่งผลต่อกล้องจำนวน {selectedCameraIds.length} รายการ</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 mb-3 leading-relaxed">
+              เลือกสถานะใหม่ที่ต้องการกำหนดให้กับกล้องวงจรปิดที่เลือกจำนวน <strong className="text-white font-bold">{selectedCameraIds.length} รายการ</strong>
+            </p>
+
+            {/* Status Radio Choices */}
+            <div className="space-y-2 mb-4">
+              {[
+                { value: 'ONLINE', label: 'พร้อมใช้งาน (ONLINE)', desc: 'กล้องทำงานปกติ บันทึกภาพและสตรีมได้', color: 'emerald' },
+                { value: 'OFFLINE', label: 'ชำรุด/ขัดข้อง (OFFLINE)', desc: 'กล้องไม่ส่งสัญญาณภาพหรือขัดข้อง', color: 'red' },
+                { value: 'MAINTENANCE', label: 'อยู่ระหว่างซ่อม (MAINTENANCE)', desc: 'กำลังดำเนินการตรวจสอบ/ซ่อมแซม', color: 'amber' },
+                { value: 'PENDING_INSTALL', label: 'รอติดตั้ง (PENDING INSTALL)', desc: 'อยู่ระหว่างรอการติดตั้งหรือส่งมอบ', color: 'blue' },
+              ].map(opt => (
+                <label
+                  key={opt.value}
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                    bulkTargetStatus === opt.value
+                      ? 'bg-[#00AEEF]/10 border-[#00AEEF] shadow-sm'
+                      : 'bg-black/20 border-white/5 hover:bg-white/5'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="bulkStatus"
+                    value={opt.value}
+                    checked={bulkTargetStatus === opt.value}
+                    onChange={(e) => setBulkTargetStatus(e.target.value)}
+                    className="mt-0.5 w-4 h-4 text-[#00AEEF] focus:ring-[#00AEEF] cursor-pointer accent-[#00AEEF]"
+                  />
+                  <div className="flex-grow">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${
+                        opt.color === 'emerald' ? 'bg-emerald-400' :
+                        opt.color === 'red' ? 'bg-red-400' :
+                        opt.color === 'amber' ? 'bg-amber-400' : 'bg-blue-400'
+                      }`}></span>
+                      <span className="text-xs font-bold text-white">{opt.label}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">{opt.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {/* Selected Items Preview */}
+            <div className="bg-black/40 border border-white/5 rounded-xl p-3 mb-4 overflow-y-auto max-h-36 divide-y divide-white/5">
+              <div className="text-[11px] text-slate-400 font-semibold mb-2 flex justify-between">
+                <span>รายการกล้องที่จะเปลี่ยนสถานะ:</span>
+                <span>{selectedCameraIds.length} รายการ</span>
+              </div>
+              {selectedCameraIds.slice(0, 10).map(id => {
+                const cam = cameras.find(c => c.id === id);
+                return (
+                  <div key={id} className="py-1 flex items-center justify-between text-xs">
+                    <span className="font-mono text-[#00AEEF] font-bold">{id}</span>
+                    <span className="text-slate-400 truncate max-w-[240px] text-right">{cam?.address_ref || '-'}</span>
+                  </div>
+                );
+              })}
+              {selectedCameraIds.length > 10 && (
+                <div className="pt-1.5 text-center text-xs text-slate-500 italic">
+                  ... และอีก {selectedCameraIds.length - 10} รายการ
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 justify-end pt-3 border-t border-white/10 mt-auto">
+              <button
+                type="button"
+                onClick={() => setIsBulkStatusModalOpen(false)}
+                disabled={isBulkStatusUpdating}
+                className="bg-white/5 hover:bg-white/10 text-slate-300 py-2 px-4 rounded-xl text-xs font-semibold cursor-pointer disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkStatusUpdate}
+                disabled={isBulkStatusUpdating}
+                className="flex items-center gap-1.5 bg-[#00AEEF] hover:bg-[#0096ce] text-white py-2 px-5 rounded-xl text-xs font-bold cursor-pointer shadow-lg shadow-[#00AEEF]/20 disabled:opacity-50"
+              >
+                {isBulkStatusUpdating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    กำลังบันทึก...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    บันทึกเปลี่ยนสถานะ ({selectedCameraIds.length} รายการ)
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

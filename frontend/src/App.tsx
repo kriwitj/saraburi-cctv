@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 // Import Pages
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
 import Dashboard from './pages/Dashboard';
@@ -133,6 +134,11 @@ export default function App() {
       </div>
 
       <Routes>
+        <Route
+          path="/"
+          element={<LandingPage currentUser={currentUser} />}
+        />
+
         <Route
           path="/login"
           element={
@@ -274,7 +280,11 @@ function MainLayout({
       } ${isDarkMode ? 'bg-[#0b0f19] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
 
         <div className="flex flex-col gap-6 p-4 overflow-y-auto flex-grow">
-          <div className="flex items-center gap-3 border-b border-white/5 pb-4 overflow-hidden">
+          <div
+            className="flex items-center gap-3 border-b border-white/5 pb-4 overflow-hidden cursor-pointer hover:opacity-90 transition"
+            onClick={() => navigate('/dashboard')}
+            title="ไปที่หน้าแดชบอร์ดหลัก"
+          >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#005BAC] to-[#00AEEF] flex items-center justify-center shrink-0">
               <Shield className="w-5 h-5 text-white" />
             </div>

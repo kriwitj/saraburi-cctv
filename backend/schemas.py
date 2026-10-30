@@ -120,6 +120,23 @@ class CameraBulkDeleteResponse(BaseModel):
     failed_ids: List[str] = []
     message: str
 
+class CameraBulkStatusUpdateRequest(BaseModel):
+    ids: List[str]
+    status: str
+
+class CameraBulkStatusUpdateResponse(BaseModel):
+    success: bool
+    updated_count: int
+    failed_count: int = 0
+    failed_ids: List[str] = []
+    message: str
+
+class PublicLandingStats(BaseModel):
+    total_cameras: int
+    online_cameras: int
+    offline_cameras: int
+    total_budget: float
+
 # GeoJSON Wrapper Schema for GIS mapping
 class CameraGeoJSONProperties(BaseModel):
     id: str
