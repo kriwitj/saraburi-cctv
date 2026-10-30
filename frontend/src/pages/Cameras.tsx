@@ -384,7 +384,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
       addToast(`ดาวน์โหลด Template (${format.toUpperCase()}) สำเร็จ`, 'success');
     } catch (err: any) {
       // Fallback: download client-side template if backend request fails
-      const sampleCsv = `id,serial_number,asset_registry_no,mac_address,private_ip,public_ip,brand,model,category,local_gov_id,district_id,latitude,longitude,elevation_m,azimuth_deg,view_angle_deg,view_range_m,address_ref,installation_site_id,install_point_type_id,camera_function_type_id,purpose_type,status,nvr_name,project_fiscal_year,project_name,install_date,warranty_expiry,stream_url\nSRI-1901-190101-0001,HK-89124-XYZ,ครภ.518-68-0001,E0:50:8B:1A:2C:4F,192.168.1.10,118.172.45.67,Hikvision,DS-2CD21,BULLET,LA-190101,1901,14.527200,100.912500,3.0,120.0,90.0,30.0,สี่แยกตลาดโต้รุ่ง สระบุรี เสาไฟฟ้าหน้าเซเว่น,ROAD_INTERSECTION,AREA_OVERVIEW,GENERAL,TRAFFIC,ONLINE,NVR-Municipal-Office-1,2568,โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน,2024-01-15,2028-12-31,rtsp://admin:pass@192.168.1.10:554/live\n,DH-99120-ABC,ครภ.518-68-0002,F4:4E:05:AA:BB:CC,192.168.1.11,118.172.45.68,Dahua,DH-IPC,PTZ,เทศบาลเมืองสระบุรี,1901,14.532100,100.915200,3.5,45.0,85.0,45.0,หน้า สภ.เมืองสระบุรี เสาทางเข้าหลัก,GOVERNMENT_AGENCY,ENTRANCE_EXIT,PUBLIC_AREA_VIEW,SAFETY,ONLINE,NVR-Municipal-Office-1,2568,โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน,2024-02-01,2028-12-31,`;
+      const sampleCsv = `id,serial_number,asset_registry_no,mac_address,private_ip,public_ip,brand,model,category,local_gov_id,district_id,latitude,longitude,elevation_m,azimuth_deg,view_angle_deg,view_range_m,address_ref,installation_site_id,install_point_type_id,camera_function_type_id,purpose_type,status,nvr_name,project_fiscal_year,project_name,install_date,warranty_expiry,stream_url\nSRI-1901-190101-0001,HK-89124-XYZ,ครภ.518-68-0001,E0:50:8B:1A:2C:4F,192.168.1.10,118.172.45.67,Hikvision,DS-2CD21,BULLET,5190101,1901,14.527200,100.912500,3.0,120.0,90.0,30.0,สี่แยกตลาดโต้รุ่ง สระบุรี เสาไฟฟ้าหน้าเซเว่น,ROAD_INTERSECTION,AREA_OVERVIEW,GENERAL,TRAFFIC,ONLINE,NVR-Municipal-Office-1,2568,โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน,2024-01-15,2028-12-31,rtsp://admin:pass@192.168.1.10:554/live\n,DH-99120-ABC,ครภ.518-68-0002,F4:4E:05:AA:BB:CC,192.168.1.11,118.172.45.68,Dahua,DH-IPC,PTZ,เทศบาลเมืองสระบุรี,1901,14.532100,100.915200,3.5,45.0,85.0,45.0,หน้า สภ.เมืองสระบุรี เสาทางเข้าหลัก,GOVERNMENT_AGENCY,ENTRANCE_EXIT,PUBLIC_AREA_VIEW,SAFETY,ONLINE,NVR-Municipal-Office-1,2568,โครงการติดตั้งกล้องเขตเศรษฐกิจชั้นใน,2024-02-01,2028-12-31,`;
       const blob = new Blob(['\uFEFF' + sampleCsv], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -490,7 +490,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
           <SearchableSelect
             value={form.local_gov_id}
             onChange={(v) => setForm(prev => ({ ...prev, local_gov_id: v }))}
-            options={localGovsApi.data.map(g => ({ value: g.id, label: `${g.name_th} (${g.id})` }))}
+            options={localGovsApi.data.map(g => ({ value: g.id, label: `${g.name_th} (${g.dla_code || g.id.replace("LA-", "")})` }))}
             placeholder="-- เลือกหน่วยงาน --"
             required
           />

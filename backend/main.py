@@ -772,6 +772,13 @@ def export_cameras_bulk(
 
     rows = []
     for cam in cameras:
+        # ดึงรหัสหน่วยงานตาม A. ข้อมูลหน่วยงาน (dla_code หรือตัด LA- ออก)
+        gov_code = None
+        if cam.local_government:
+            gov_code = cam.local_government.dla_code or (cam.local_gov_id.replace("LA-", "") if cam.local_gov_id else None)
+        elif cam.local_gov_id:
+            gov_code = cam.local_gov_id.replace("LA-", "")
+
         rows.append({
             "id": cam.id,
             "serial_number": cam.serial_number,
@@ -782,7 +789,7 @@ def export_cameras_bulk(
             "brand": brands_by_id.get(cam.catalog.brand_id) if cam.catalog else None,
             "model": cam.catalog.model if cam.catalog else None,
             "category": cam.catalog.category_id if cam.catalog else None,
-            "local_gov_id": cam.local_gov_id,
+            "local_gov_id": gov_code,
             "district_id": cam.local_government.district_id if cam.local_government else None,
             "latitude": cam.latitude,
             "longitude": cam.longitude,
@@ -1057,7 +1064,7 @@ def download_camera_template(format: str = Query("csv", pattern="^(csv|xlsx)$"))
             "brand": "Hikvision",
             "model": "DS-2CD21",
             "category": "BULLET",
-            "local_gov_id": "LA-190101",
+            "local_gov_id": "5190101",
             "district_id": "1901",
             "latitude": 14.527200,
             "longitude": 100.912500,
@@ -1131,7 +1138,7 @@ def download_camera_template(format: str = Query("csv", pattern="^(csv|xlsx)$"))
                 {"ฟิลด์ (Field)": "private_ip / public_ip", "คำอธิบาย": "IP Address ภายใน/ภายนอกของกล้อง", "ค่าตัวอย่าง": "192.168.1.10, 118.172.45.67"},
                 {"ฟิลด์ (Field)": "brand / model", "คำอธิบาย": "ยี่ห้อและรุ่นของอุปกรณ์กล้อง", "ค่าตัวอย่าง": "Hikvision / DS-2CD21, Dahua / DH-IPC"},
                 {"ฟิลด์ (Field)": "category", "คำอธิบาย": "ประเภทตัวกล้อง", "ค่าตัวอย่าง": "FIXED, DOME, BULLET, PTZ, ANPR"},
-                {"ฟิลด์ (Field)": "local_gov_id", "คำอธิบาย": "รหัส อปท. หรือชื่อหน่วยงาน อปท. เจ้าของกล้อง", "ค่าตัวอย่าง": "LA-190101, เทศบาลเมืองสระบุรี, อบจ.สระบุรี"},
+                {"ฟิลด์ (Field)": "local_gov_id", "คำอธิบาย": "รหัสหน่วยงาน อปท. (ตามแท็บ A. ข้อมูลหน่วยงาน เช่น 5190101 โดยไม่ต้องมี LA-) หรือระบุเป็นชื่อหน่วยงาน อปท.", "ค่าตัวอย่าง": "5190101, เทศบาลเมืองสระบุรี, อบจ.สระบุรี"},
                 {"ฟิลด์ (Field)": "latitude / longitude", "คำอธิบาย": "พิกัด WGS84 ภายในจังหวัดสระบุรี (lat: 14.20-15.10, lng: 100.50-101.60)", "ค่าตัวอย่าง": "14.527200, 100.912500"},
                 {"ฟิลด์ (Field)": "elevation_m", "คำอธิบาย": "ความสูงติดตั้งจากระดับพื้นดิน (เมตร)", "ค่าตัวอย่าง": "3.0, 3.5, 4.0"},
                 {"ฟิลด์ (Field)": "azimuth_deg", "คำอธิบาย": "ทิศทางกล้องหันไป (0-360 องศา, 0=ทิศเหนือ, 90=ตะวันออก, 180=ใต้, 270=ตะวันตก)", "ค่าตัวอย่าง": "0, 90, 120, 180"},
@@ -1186,6 +1193,7 @@ def import_cameras_bulk(
     all_local_govs = db.query(models.LocalGovernment).all()
     gov_by_id = {g.id.strip(): g for g in all_local_govs}
     gov_by_dla = {g.dla_code.strip(): g for g in all_local_govs if g.dla_code}
+    gov_by_stripped_id = {g.id.replace("LA-", "").replace("la-", "").strip(): g for g in all_local_govs}
     gov_by_name = {g.name_th.strip(): g for g in all_local_govs if g.name_th}
 
     # สร้าง Dictionary สำหรับ Lookups อื่นๆ
@@ -1254,16 +1262,24 @@ def import_cameras_bulk(
         target_local_gov = None
 
         if gov_raw:
-            if gov_raw in gov_by_id:
-                target_local_gov = gov_by_id[gov_raw]
-            elif gov_raw in gov_by_dla:
-                target_local_gov = gov_by_dla[gov_raw]
-            elif gov_raw in gov_by_name:
-                target_local_gov = gov_by_name[gov_raw]
+            raw_s = str(gov_raw).strip()
+            raw_no_la = raw_s.replace("LA-", "").replace("la-", "").strip()
+            if raw_s in gov_by_dla:
+                target_local_gov = gov_by_dla[raw_s]
+            elif raw_no_la in gov_by_dla:
+                target_local_gov = gov_by_dla[raw_no_la]
+            elif raw_s in gov_by_id:
+                target_local_gov = gov_by_id[raw_s]
+            elif raw_no_la in gov_by_stripped_id:
+                target_local_gov = gov_by_stripped_id[raw_no_la]
+            elif f"LA-{raw_s}" in gov_by_id:
+                target_local_gov = gov_by_id[f"LA-{raw_s}"]
+            elif raw_s in gov_by_name:
+                target_local_gov = gov_by_name[raw_s]
             else:
                 # ลองค้นหาแบบบางส่วน (partial match)
                 for g_name, g_obj in gov_by_name.items():
-                    if gov_raw in g_name or g_name in gov_raw:
+                    if raw_s in g_name or g_name in raw_s:
                         target_local_gov = g_obj
                         break
 

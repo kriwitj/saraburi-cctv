@@ -321,7 +321,7 @@ export default function Users({ currentUser, users, refetchUsers, addToast }: Us
                   <SearchableSelect
                     value={form.local_gov_id}
                     onChange={(v) => setForm(prev => ({ ...prev, local_gov_id: v }))}
-                    options={localGovsInDistrict.map(g => ({ value: g.id, label: `${g.name_th} (${g.id})` }))}
+                    options={localGovsInDistrict.map(g => ({ value: g.id, label: `${g.name_th} (${g.dla_code || g.id.replace("LA-", "")})` }))}
                     placeholder="-- ไม่ระบุ --"
                     emptyLabel="-- ไม่ระบุ --"
                   />
@@ -392,7 +392,7 @@ export default function Users({ currentUser, users, refetchUsers, addToast }: Us
                   <SearchableSelect
                     value={form.local_gov_id}
                     onChange={(v) => setForm(prev => ({ ...prev, local_gov_id: v }))}
-                    options={localGovsInDistrict.map(g => ({ value: g.id, label: `${g.name_th} (${g.id})` }))}
+                    options={localGovsInDistrict.map(g => ({ value: g.id, label: `${g.name_th} (${g.dla_code || g.id.replace("LA-", "")})` }))}
                     placeholder="-- ไม่ระบุ --"
                     emptyLabel="-- ไม่ระบุ --"
                   />
