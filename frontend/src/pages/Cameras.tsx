@@ -146,6 +146,21 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
   } | null>(null);
   const [previewFilterTab, setPreviewFilterTab] = useState<'ALL' | 'VALID' | 'ERROR'>('ALL');
   const [previewSearch, setPreviewSearch] = useState('');
+  const [isSingleDeleting, setIsSingleDeleting] = useState(false);
+  const [opProgress, setOpProgress] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    percent: number;
+    statusText: string;
+    type?: 'import' | 'delete' | 'permanent_delete';
+  }>({
+    isOpen: false,
+    title: '',
+    subtitle: '',
+    percent: 0,
+    statusText: '',
+  });
   const [importSummary, setImportSummary] = useState<any>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
@@ -310,16 +325,81 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
     }
   };
 
+  const runProgress = (
+    initialTitle: string,
+    initialSubtitle: string,
+    type: 'import' | 'delete' | 'permanent_delete',
+    stages: Array<{ targetPct: number; text: string }>
+  ) => {
+    let currentPct = 12;
+    setOpProgress({
+      isOpen: true,
+      title: initialTitle,
+      subtitle: initialSubtitle,
+      percent: 12,
+      statusText: stages[0]?.text || 'กำลังดำเนินการ...',
+      type,
+    });
+
+    let stageIdx = 0;
+    const interval = setInterval(() => {
+      if (stageIdx < stages.length) {
+        const currentStage = stages[stageIdx];
+        if (currentPct < currentStage.targetPct) {
+          currentPct += Math.min(3, currentStage.targetPct - currentPct);
+          setOpProgress(prev => ({
+            ...prev,
+            percent: currentPct,
+            statusText: currentStage.text,
+          }));
+        } else {
+          stageIdx++;
+        }
+      }
+    }, 100);
+
+    return {
+      finish: async (successText: string) => {
+        clearInterval(interval);
+        setOpProgress(prev => ({
+          ...prev,
+          percent: 100,
+          statusText: successText || 'เสร็จสมบูรณ์ 100%',
+        }));
+        await new Promise(r => setTimeout(r, 400));
+        setOpProgress(prev => ({ ...prev, isOpen: false }));
+      },
+      error: () => {
+        clearInterval(interval);
+        setOpProgress(prev => ({ ...prev, isOpen: false }));
+      },
+    };
+  };
+
   const handleBulkDelete = async () => {
     if (selectedCameraIds.length === 0) return;
     setIsBulkDeleting(true);
+    const count = selectedCameraIds.length;
+    const progress = runProgress(
+      'กำลังย้ายกล้องไปที่แท็บลบแล้ว',
+      `${count} รายการที่เลือก`,
+      'delete',
+      [
+        { targetPct: 40, text: 'กำลังตรวจสอบรายการกล้องที่เลือก...' },
+        { targetPct: 75, text: 'กำลังปรับเปลี่ยนสถานะกล้องในระบบ...' },
+        { targetPct: 92, text: 'กำลังบันทึกประวัติการทำงาน (Audit Log)...' },
+      ]
+    );
+
     try {
       const res = await apiClient.post('/cameras/bulk-delete', { ids: selectedCameraIds });
-      addToast(res.data?.message || `ลบกล้อง ${res.data?.deleted_count || selectedCameraIds.length} รายการสำเร็จ`, 'success');
+      await progress.finish('ย้ายกล้องไปที่แท็บลบแล้วสำเร็จ 100%!');
+      addToast(res.data?.message || `ลบกล้อง ${res.data?.deleted_count || count} รายการสำเร็จ`, 'success');
       setSelectedCameraIds([]);
       setIsBulkDeleteModalOpen(false);
       refetchCameras();
     } catch (err: any) {
+      progress.error();
       addToast(extractErrorMessage(err, 'ลบกล้องแบบกลุ่มไม่สำเร็จ'), 'error');
     } finally {
       setIsBulkDeleting(false);
@@ -328,13 +408,29 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
 
   const handleDelete = async () => {
     if (!deletingCamId) return;
+    setIsSingleDeleting(true);
+    const camId = deletingCamId;
+    const progress = runProgress(
+      'กำลังลบข้อมูลกล้อง',
+      `รหัสกล้อง: ${camId}`,
+      'delete',
+      [
+        { targetPct: 45, text: 'กำลังปรับสถานะเป็นลบแล้ว (REMOVED)...' },
+        { targetPct: 85, text: 'กำลังจัดเก็บบันทึกประวัติการทำงาน...' },
+      ]
+    );
+
     try {
-      await apiClient.delete(`/cameras/${deletingCamId}`);
-      addToast(`ลบกล้อง ${deletingCamId} ย้ายไปแท็บลบแล้ว`, 'success');
+      await apiClient.delete(`/cameras/${camId}`);
+      await progress.finish('ลบข้อมูลกล้องย้ายไปแท็บลบแล้วสำเร็จ 100%!');
+      addToast(`ลบกล้อง ${camId} ย้ายไปแท็บลบแล้ว`, 'success');
       setDeletingCamId(null);
       refetchCameras();
     } catch (err: any) {
+      progress.error();
       addToast(extractErrorMessage(err, 'ลบกล้องไม่สำเร็จ'), 'error');
+    } finally {
+      setIsSingleDeleting(false);
     }
   };
 
@@ -358,24 +454,42 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
     }
 
     setIsPermanentDeleting(true);
+    const isBulk = permanentDeleteTarget.type === 'bulk';
+    const count = isBulk ? permanentDeleteTarget.ids.length : 1;
+    const label = isBulk ? `${count} รายการที่เลือก` : `รหัสกล้อง: ${permanentDeleteTarget.id}`;
+
+    const progress = runProgress(
+      'กำลังลบข้อมูลกล้องแบบถาวร',
+      label,
+      'permanent_delete',
+      [
+        { targetPct: 35, text: 'กำลังตรวจสอบสิทธิ์ความปลอดภัยการลบถาวร...' },
+        { targetPct: 70, text: 'กำลังลบข้อมูลกล้องและข้อมูลเชื่อมโยงออกจากฐานข้อมูล...' },
+        { targetPct: 92, text: 'กำลังบันทึกประวัติความปลอดภัย (Hard Delete Audit)...' },
+      ]
+    );
+
     try {
       if (permanentDeleteTarget.type === 'single') {
         await apiClient.delete(`/cameras/${permanentDeleteTarget.id}/permanent`, {
           params: { confirm_text: trimmed }
         });
+        await progress.finish('ลบข้อมูลกล้องแบบถาวรเรียบร้อยแล้ว!');
         addToast(`ลบข้อมูลกล้อง ${permanentDeleteTarget.id} แบบถาวรเรียบร้อยแล้ว`, 'success');
       } else {
         const res = await apiClient.post('/cameras/bulk-permanent-delete', {
           ids: permanentDeleteTarget.ids,
           confirm_text: trimmed
         });
-        addToast(res.data?.message || `ลบข้อมูลกล้องแบบถาวรสำเร็จ ${res.data?.deleted_count || permanentDeleteTarget.ids.length} รายการ`, 'success');
+        await progress.finish('ลบข้อมูลกล้องแบบถาวรเรียบร้อยแล้ว!');
+        addToast(res.data?.message || `ลบข้อมูลกล้องแบบถาวรสำเร็จ ${res.data?.deleted_count || count} รายการ`, 'success');
         setSelectedCameraIds([]);
       }
       setPermanentDeleteTarget(null);
       setPermanentConfirmInput('');
       refetchCameras();
     } catch (err: any) {
+      progress.error();
       addToast(extractErrorMessage(err, 'ลบข้อมูลกล้องแบบถาวรไม่สำเร็จ'), 'error');
     } finally {
       setIsPermanentDeleting(false);
@@ -527,16 +641,40 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
     if (!file) return;
     setPendingImportFile(file);
     setIsImportPreviewing(true);
+
+    const progress = runProgress(
+      'กำลังตรวจสอบโครงสร้างไฟล์นำเข้า',
+      file.name,
+      'import',
+      [
+        { targetPct: 35, text: 'กำลังอ่านไฟล์และตรวจสอบคอลัมน์...' },
+        { targetPct: 65, text: 'กำลังตรวจสอบหน่วยงานเจ้าของและพิกัดแผนที่...' },
+        { targetPct: 88, text: 'กำลังสร้างตารางจำลองสรุปผลพรีวิว...' },
+      ]
+    );
+
     try {
       const formData = new FormData();
       formData.append('file', file);
       const res = await apiClient.post('/cameras/import?preview=true', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (evt) => {
+          if (evt.total) {
+            const upPct = Math.round((evt.loaded * 30) / evt.total);
+            setOpProgress(p => ({
+              ...p,
+              percent: Math.max(p.percent, upPct),
+              statusText: upPct < 30 ? `กำลังอัปโหลดไฟล์ (${Math.round((evt.loaded * 100) / evt.total)}%)...` : 'อัปโหลดเสร็จสิ้น กำลังตรวจสอบโครงสร้าง...',
+            }));
+          }
+        }
       });
+      await progress.finish('ตรวจสอบข้อมูลสำเร็จ!');
       setImportPreviewData(res.data);
       setPreviewFilterTab('ALL');
       setPreviewSearch('');
     } catch (err: any) {
+      progress.error();
       addToast(extractErrorMessage(err, 'ไม่สามารถเปิดอ่านไฟล์หรือตรวจสอบข้อมูลได้'), 'error');
       setPendingImportFile(null);
     } finally {
@@ -548,12 +686,26 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
   const handleConfirmImportSubmit = async () => {
     if (!pendingImportFile) return;
     setIsSubmittingImport(true);
+
+    const count = importPreviewData?.imported_count || 0;
+    const progress = runProgress(
+      'กำลังนำเข้าข้อมูลสู่ฐานข้อมูล',
+      `${count} รายการที่ผ่านการตรวจสอบ`,
+      'import',
+      [
+        { targetPct: 30, text: 'กำลังเตรียมชุดข้อมูลและตรวจสอบรุ่น Master Data...' },
+        { targetPct: 65, text: 'กำลังบันทึกข้อมูลกล้องและสร้างรหัส Asset ID...' },
+        { targetPct: 90, text: 'กำลังบันทึกประวัติการทำงาน (Audit Log)...' },
+      ]
+    );
+
     try {
       const formData = new FormData();
       formData.append('file', pendingImportFile);
       const res = await apiClient.post('/cameras/import', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      await progress.finish('บันทึกข้อมูลลงฐานข้อมูลสำเร็จ 100%!');
       setImportSummary(res.data);
       setImportPreviewData(null);
       setPendingImportFile(null);
@@ -565,6 +717,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
         res.data.failed_count === 0 ? 'success' : 'warning'
       );
     } catch (err: any) {
+      progress.error();
       addToast(extractErrorMessage(err, 'นำเข้าข้อมูลไม่สำเร็จ'), 'error');
     } finally {
       setIsSubmittingImport(false);
@@ -1763,6 +1916,125 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
         </div>
       )}
 
+      {/* GLOBAL ACTION PROGRESS OVERLAY (EFFECT LOADING & PERCENTAGE) */}
+      {opProgress.isOpen && (
+        <div className="fixed inset-0 bg-black/85 z-[20000] flex items-center justify-center backdrop-blur-xl p-4 animate-in fade-in duration-200">
+          <div className="bg-[#0b1120] border border-white/10 rounded-3xl w-full max-w-md p-7 text-center shadow-2xl relative overflow-hidden">
+            {/* Ambient Background Glow */}
+            <div
+              className={`absolute -top-20 -left-20 w-48 h-48 rounded-full blur-3xl opacity-30 pointer-events-none ${
+                opProgress.type === 'permanent_delete'
+                  ? 'bg-rose-600'
+                  : opProgress.type === 'delete'
+                  ? 'bg-amber-600'
+                  : 'bg-sky-500'
+              }`}
+            />
+            <div
+              className={`absolute -bottom-20 -right-20 w-48 h-48 rounded-full blur-3xl opacity-30 pointer-events-none ${
+                opProgress.type === 'permanent_delete'
+                  ? 'bg-rose-800'
+                  : opProgress.type === 'delete'
+                  ? 'bg-amber-800'
+                  : 'bg-teal-500'
+              }`}
+            />
+
+            {/* Icon with Spinning Ring */}
+            <div className="relative w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+              <div
+                className={`absolute inset-0 rounded-full border-2 border-dashed animate-spin ${
+                  opProgress.type === 'permanent_delete'
+                    ? 'border-rose-500/60'
+                    : opProgress.type === 'delete'
+                    ? 'border-amber-500/60'
+                    : 'border-sky-400/60'
+                }`}
+                style={{ animationDuration: '6s' }}
+              />
+              <div
+                className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${
+                  opProgress.type === 'permanent_delete'
+                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-rose-500/20'
+                    : opProgress.type === 'delete'
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-amber-500/20'
+                    : 'bg-sky-500/20 text-sky-400 border border-sky-500/30 shadow-sky-500/20'
+                }`}
+              >
+                {opProgress.type === 'permanent_delete' ? (
+                  <Trash2 className="w-7 h-7 animate-pulse" />
+                ) : opProgress.type === 'delete' ? (
+                  <AlertTriangle className="w-7 h-7 animate-pulse" />
+                ) : (
+                  <Upload className="w-7 h-7 animate-pulse" />
+                )}
+              </div>
+            </div>
+
+            {/* Title & Subtitle */}
+            <h3 className="text-lg font-bold text-white mb-1">{opProgress.title}</h3>
+            {opProgress.subtitle && (
+              <div className="inline-block px-3 py-0.5 rounded-full text-xs font-mono text-slate-300 bg-white/5 border border-white/10 mb-4">
+                {opProgress.subtitle}
+              </div>
+            )}
+
+            {/* Big Percentage Display */}
+            <div className="my-2">
+              <span
+                className={`text-4xl font-black tracking-tight ${
+                  opProgress.type === 'permanent_delete'
+                    ? 'text-rose-400'
+                    : opProgress.type === 'delete'
+                    ? 'text-amber-400'
+                    : 'text-[#00f2fe]'
+                }`}
+              >
+                {Math.round(opProgress.percent)}%
+              </span>
+            </div>
+
+            {/* Progress Bar Container */}
+            <div className="w-full bg-slate-900 rounded-full h-3 p-0.5 border border-white/10 mb-3 overflow-hidden shadow-inner">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ease-out relative ${
+                  opProgress.type === 'permanent_delete'
+                    ? 'bg-gradient-to-r from-red-600 to-rose-400 shadow-rose-500/50'
+                    : opProgress.type === 'delete'
+                    ? 'bg-gradient-to-r from-amber-600 to-yellow-400 shadow-amber-500/50'
+                    : 'bg-gradient-to-r from-[#005BAC] via-[#00AEEF] to-[#00f2fe] shadow-sky-500/50'
+                }`}
+                style={{ width: `${Math.min(100, Math.max(5, opProgress.percent))}%` }}
+              >
+                <div className="absolute inset-0 bg-white/20 animate-pulse rounded-full" />
+              </div>
+            </div>
+
+            {/* Status Message */}
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-300 min-h-[22px]">
+              {opProgress.percent < 100 ? (
+                <Loader2
+                  className={`w-3.5 h-3.5 animate-spin ${
+                    opProgress.type === 'permanent_delete'
+                      ? 'text-rose-400'
+                      : opProgress.type === 'delete'
+                      ? 'text-amber-400'
+                      : 'text-sky-400'
+                  }`}
+                />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              )}
+              <span className="font-medium">{opProgress.statusText}</span>
+            </div>
+
+            <p className="text-[11px] text-slate-500 mt-4">
+              กรุณารอสักครู่ ระบบกำลังประมวลผลข้อมูล...
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* DELETE CONFIRMATION MODAL */}
       {deletingCamId && (
         <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
@@ -1775,8 +2047,29 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
               คุณแน่ใจหรือไม่ที่จะลบกล้องรหัส <strong className="text-red-400">{deletingCamId}</strong> ออกจากทะเบียนกลาง? ข้อมูลกล้องจะไม่ถูกลบถาวร แต่จะย้ายไปแสดงในแท็บ "ลบแล้ว" และสามารถกู้คืนได้ภายหลังโดยแก้ไขสถานะ
             </p>
             <div className="flex gap-3 justify-end pt-3 border-t border-white/5">
-              <button onClick={() => setDeletingCamId(null)} className="bg-white/5 hover:bg-white/10 text-slate-400 py-2 px-4 rounded-lg text-xs cursor-pointer">ยกเลิก</button>
-              <button onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white py-2 px-5 rounded-lg text-xs font-bold cursor-pointer">ยืนยันลบ</button>
+              <button
+                type="button"
+                disabled={isSingleDeleting}
+                onClick={() => setDeletingCamId(null)}
+                className="bg-white/5 hover:bg-white/10 text-slate-400 py-2 px-4 rounded-lg text-xs cursor-pointer disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                disabled={isSingleDeleting}
+                onClick={handleDelete}
+                className="bg-red-600 hover:bg-red-700 text-white py-2 px-5 rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isSingleDeleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>กำลังลบ...</span>
+                  </>
+                ) : (
+                  <span>ยืนยันลบ</span>
+                )}
+              </button>
             </div>
           </div>
         </div>
