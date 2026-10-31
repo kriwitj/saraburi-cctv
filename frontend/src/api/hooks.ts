@@ -56,7 +56,7 @@ export function useDashboardSummary(localGovId?: string) {
 }
 
 export function useCameras(enabled: boolean = true) {
-  return useApiList<any>('/cameras?limit=1000', enabled);
+  return useApiList<any>('/cameras', enabled);
 }
 
 export function useUsers(enabled: boolean = true) {

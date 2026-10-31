@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Search, AlertOctagon, Download, Upload, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Trash2, Loader2, RefreshCw, X } from 'lucide-react';
+import { Plus, Search, AlertOctagon, Download, Upload, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Trash2, Loader2, RefreshCw, X, AlertTriangle, RotateCcw } from 'lucide-react';
 import { apiClient, extractErrorMessage } from '../api/client';
 import {
   useDeviceBrands, useDeviceCatalog, useLocalGovernments, useNvrVmsSystems, useProjects,
@@ -112,6 +112,9 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
   const [isBulkStatusModalOpen, setIsBulkStatusModalOpen] = useState(false);
   const [bulkTargetStatus, setBulkTargetStatus] = useState('ONLINE');
   const [isBulkStatusUpdating, setIsBulkStatusUpdating] = useState(false);
+  const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<{ type: 'single'; id: string } | { type: 'bulk'; ids: string[] } | null>(null);
+  const [permanentConfirmInput, setPermanentConfirmInput] = useState('');
+  const [isPermanentDeleting, setIsPermanentDeleting] = useState(false);
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<typeof emptyForm>(emptyForm);
   const nvrVmsApi = useNvrVmsSystems(form.local_gov_id || undefined);
@@ -301,11 +304,83 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
     if (!deletingCamId) return;
     try {
       await apiClient.delete(`/cameras/${deletingCamId}`);
-      addToast(`ลบกล้อง ${deletingCamId} ออกจากระบบแล้ว`, 'success');
+      addToast(`ลบกล้อง ${deletingCamId} ย้ายไปแท็บลบแล้ว`, 'success');
       setDeletingCamId(null);
       refetchCameras();
     } catch (err: any) {
       addToast(extractErrorMessage(err, 'ลบกล้องไม่สำเร็จ'), 'error');
+    }
+  };
+
+  const handleOpenPermanentDeleteSingle = (id: string) => {
+    setPermanentDeleteTarget({ type: 'single', id });
+    setPermanentConfirmInput('');
+  };
+
+  const handleOpenPermanentDeleteBulk = () => {
+    if (selectedCameraIds.length === 0) return;
+    setPermanentDeleteTarget({ type: 'bulk', ids: [...selectedCameraIds] });
+    setPermanentConfirmInput('');
+  };
+
+  const handleConfirmPermanentDelete = async () => {
+    if (!permanentDeleteTarget) return;
+    const trimmed = permanentConfirmInput.trim();
+    if (trimmed !== 'ลบถาวร' && trimmed.toUpperCase() !== 'DELETE') {
+      addToast("กรุณาพิมพ์คำว่า 'ลบถาวร' หรือ 'DELETE' เพื่อยืนยัน", 'warning');
+      return;
+    }
+
+    setIsPermanentDeleting(true);
+    try {
+      if (permanentDeleteTarget.type === 'single') {
+        await apiClient.delete(`/cameras/${permanentDeleteTarget.id}/permanent`, {
+          params: { confirm_text: trimmed }
+        });
+        addToast(`ลบข้อมูลกล้อง ${permanentDeleteTarget.id} แบบถาวรเรียบร้อยแล้ว`, 'success');
+      } else {
+        const res = await apiClient.post('/cameras/bulk-permanent-delete', {
+          ids: permanentDeleteTarget.ids,
+          confirm_text: trimmed
+        });
+        addToast(res.data?.message || `ลบข้อมูลกล้องแบบถาวรสำเร็จ ${res.data?.deleted_count || permanentDeleteTarget.ids.length} รายการ`, 'success');
+        setSelectedCameraIds([]);
+      }
+      setPermanentDeleteTarget(null);
+      setPermanentConfirmInput('');
+      refetchCameras();
+    } catch (err: any) {
+      addToast(extractErrorMessage(err, 'ลบข้อมูลกล้องแบบถาวรไม่สำเร็จ'), 'error');
+    } finally {
+      setIsPermanentDeleting(false);
+    }
+  };
+
+  const handleRestoreSingle = async (camId: string) => {
+    try {
+      const res = await apiClient.post('/cameras/bulk-status', {
+        ids: [camId],
+        status: 'ONLINE',
+      });
+      addToast(res.data?.message || `กู้คืนสถานะกล้อง ${camId} เป็นพร้อมใช้งานสำเร็จ`, 'success');
+      refetchCameras();
+    } catch (err: any) {
+      addToast(extractErrorMessage(err, 'กู้คืนสถานะกล้องไม่สำเร็จ'), 'error');
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    if (selectedCameraIds.length === 0) return;
+    try {
+      const res = await apiClient.post('/cameras/bulk-status', {
+        ids: selectedCameraIds,
+        status: 'ONLINE',
+      });
+      addToast(res.data?.message || `กู้คืนสถานะกล้อง ${selectedCameraIds.length} รายการเป็นพร้อมใช้งานแล้ว`, 'success');
+      setSelectedCameraIds([]);
+      refetchCameras();
+    } catch (err: any) {
+      addToast(extractErrorMessage(err, 'กู้คืนสถานะกล้องไม่สำเร็จ'), 'error');
     }
   };
 
@@ -702,7 +777,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
 
       <div className="flex items-center gap-2 border-b border-white/10">
         <button
-          onClick={() => { setActiveTab('active'); setFilterStatus(''); }}
+          onClick={() => { setActiveTab('active'); setFilterStatus(''); setSelectedCameraIds([]); }}
           className={`py-2.5 px-4 text-xs font-bold border-b-2 -mb-px cursor-pointer transition ${
             activeTab === 'active' ? 'border-[#00AEEF] text-[#00AEEF]' : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
@@ -710,7 +785,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
           ใช้งานอยู่ ({activeCount})
         </button>
         <button
-          onClick={() => { setActiveTab('removed'); setFilterStatus(''); }}
+          onClick={() => { setActiveTab('removed'); setFilterStatus(''); setSelectedCameraIds([]); }}
           className={`py-2.5 px-4 text-xs font-bold border-b-2 -mb-px cursor-pointer transition ${
             activeTab === 'removed' ? 'border-red-400 text-red-400' : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
@@ -774,7 +849,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
           <table className="w-full text-xs text-left">
             <thead>
               <tr className="bg-black/40 text-slate-400 border-b border-white/10">
-                {canEdit && activeTab === 'active' && (
+                {canEdit && (
                   <th className="p-4 w-10 text-center">
                     <input
                       ref={headerCheckboxRef}
@@ -807,7 +882,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
                       isSelected ? 'bg-[#00AEEF]/10 border-l-2 border-l-[#00AEEF]' : 'hover:bg-white/5'
                     }`}
                   >
-                    {canEdit && activeTab === 'active' && (
+                    {canEdit && (
                       <td className="p-4 text-center">
                         <input
                           type="checkbox"
@@ -841,20 +916,37 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
                     </span>
                   </td>
                   {canEdit && (
-                    <td className="p-4 text-right flex justify-end gap-2">
+                    <td className="p-4 text-right flex justify-end items-center gap-1.5">
                       <button
                         onClick={() => openEdit(c)}
-                        className="bg-white/5 hover:bg-white/10 text-slate-300 py-1.5 px-3 rounded-lg border border-white/10 cursor-pointer font-bold transition text-[11px]"
+                        className="bg-white/5 hover:bg-white/10 text-slate-300 py-1.5 px-2.5 rounded-lg border border-white/10 cursor-pointer font-bold transition text-[11px]"
                       >
                         แก้ไข
                       </button>
-                      {activeTab === 'active' && (
+                      {activeTab === 'active' ? (
                         <button
                           onClick={() => setDeletingCamId(c.id)}
-                          className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-1.5 px-3 rounded-lg border border-red-500/20 cursor-pointer font-bold transition text-[11px]"
+                          className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-1.5 px-2.5 rounded-lg border border-red-500/20 cursor-pointer font-bold transition text-[11px]"
                         >
                           ลบ
                         </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleRestoreSingle(c.id)}
+                            className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 py-1.5 px-2.5 rounded-lg border border-emerald-500/20 cursor-pointer font-bold transition text-[11px] flex items-center gap-1"
+                            title="กู้คืนสถานะเป็นพร้อมใช้งาน"
+                          >
+                            <RotateCcw className="w-3 h-3" /> กู้คืน
+                          </button>
+                          <button
+                            onClick={() => handleOpenPermanentDeleteSingle(c.id)}
+                            className="bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 py-1.5 px-2.5 rounded-lg border border-rose-500/30 cursor-pointer font-bold transition text-[11px] flex items-center gap-1"
+                            title="ลบข้อมูลกล้องนี้ออกจากฐานข้อมูลอย่างถาวร"
+                          >
+                            <Trash2 className="w-3 h-3 text-rose-400" /> ลบถาวร
+                          </button>
+                        </>
                       )}
                     </td>
                   )}
@@ -898,15 +990,15 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
       </div>
 
       {/* FLOATING BATCH ACTION DOCK (Zero Layout Shift) */}
-      {canEdit && activeTab === 'active' && selectedCameraIds.length > 0 && (
+      {canEdit && selectedCameraIds.length > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] animate-in fade-in slide-in-from-bottom-5 duration-200 pointer-events-auto">
-          <div className="flex flex-wrap items-center gap-3.5 bg-[#091124]/95 border border-[#00AEEF]/40 backdrop-blur-xl rounded-2xl px-5 py-3 shadow-[0_20px_50px_rgba(0,0,0,0.7)] text-white">
+          <div className={`flex flex-wrap items-center gap-3.5 bg-[#091124]/95 border ${activeTab === 'removed' ? 'border-rose-500/40 shadow-rose-950/50' : 'border-[#00AEEF]/40 shadow-cyan-950/50'} backdrop-blur-xl rounded-2xl px-5 py-3 shadow-[0_20px_50px_rgba(0,0,0,0.7)] text-white`}>
             <div className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-[#00AEEF] text-white font-black text-xs shadow-md shadow-[#00AEEF]/40">
+              <span className={`flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full ${activeTab === 'removed' ? 'bg-rose-600' : 'bg-[#00AEEF]'} text-white font-black text-xs shadow-md`}>
                 {selectedCameraIds.length}
               </span>
               <span className="text-xs font-bold text-white whitespace-nowrap">
-                เลือก <strong className="text-[#00AEEF]">{selectedCameraIds.length}</strong> รายการ
+                เลือก <strong className={activeTab === 'removed' ? 'text-rose-400' : 'text-[#00AEEF]'}>{selectedCameraIds.length}</strong> รายการ {activeTab === 'removed' ? '(แท็บลบแล้ว)' : ''}
               </span>
               {selectedCameraIds.length < filteredCameras.length && (
                 <button
@@ -922,22 +1014,45 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
             <div className="h-5 w-px bg-white/20 mx-0.5 hidden sm:block" />
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => { setBulkTargetStatus('ONLINE'); setIsBulkStatusModalOpen(true); }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#00AEEF] hover:bg-[#0096ce] text-white shadow-md shadow-[#00AEEF]/30 transition cursor-pointer whitespace-nowrap"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                เปลี่ยนสถานะ
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsBulkDeleteModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/30 transition cursor-pointer whitespace-nowrap"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                ลบที่เลือก
-              </button>
+              {activeTab === 'active' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setBulkTargetStatus('ONLINE'); setIsBulkStatusModalOpen(true); }}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#00AEEF] hover:bg-[#0096ce] text-white shadow-md shadow-[#00AEEF]/30 transition cursor-pointer whitespace-nowrap"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    เปลี่ยนสถานะ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkDeleteModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/30 transition cursor-pointer whitespace-nowrap"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    ลบที่เลือก
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleBulkRestore}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/30 transition cursor-pointer whitespace-nowrap"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    กู้คืนสถานะที่เลือก
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenPermanentDeleteBulk}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/30 transition cursor-pointer whitespace-nowrap"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    ลบถาวรที่เลือก
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 onClick={clearSelection}
@@ -1218,6 +1333,70 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
                     ยืนยันการลบ {selectedCameraIds.length} รายการ
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PERMANENT DELETE CONFIRMATION MODAL (Type-to-Confirm) */}
+      {permanentDeleteTarget && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[2000] flex items-center justify-center p-4">
+          <div className="bg-[#121a2f] border border-rose-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                <AlertTriangle className="w-6 h-6 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">ยืนยันการลบข้อมูลกล้องแบบถาวร</h3>
+                <p className="text-xs text-rose-300 font-medium">Permanent Delete (ไม่สามารถกู้คืนได้)</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-slate-300 flex flex-col gap-1.5">
+              <p className="text-rose-300 font-semibold flex items-center gap-1.5">
+                <span>⚠️</span> คำเตือน: ข้อมูลกล้องและประวัติทั้งหมดจะถูกลบออกจากฐานข้อมูลจริงอย่างถาวร
+              </p>
+              <p className="text-slate-300 mt-1">
+                {permanentDeleteTarget.type === 'single' ? (
+                  <>ต้องการลบกล้องรหัส <strong className="text-rose-300 font-mono px-1 py-0.5 rounded bg-black/40">{permanentDeleteTarget.id}</strong></>
+                ) : (
+                  <>ต้องการลบกล้องที่เลือกทั้งหมด <strong className="text-rose-300 text-sm">{permanentDeleteTarget.ids.length}</strong> รายการ</>
+                )}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-slate-300 leading-relaxed">
+                เพื่อยืนยันการลบจริง กรุณาพิมพ์คำว่า <span className="font-bold text-rose-400 font-mono bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20 select-all">ลบถาวร</span> หรือ <span className="font-bold text-rose-400 font-mono bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20 select-all">DELETE</span> ในช่องด้านล่าง:
+              </label>
+              <input
+                type="text"
+                value={permanentConfirmInput}
+                onChange={(e) => setPermanentConfirmInput(e.target.value)}
+                placeholder="พิมพ์ 'ลบถาวร' หรือ 'DELETE' เพื่อยืนยัน"
+                className="bg-black/50 border border-rose-500/40 focus:border-rose-400 rounded-xl p-3 text-sm text-white focus:outline-none text-center font-bold tracking-wider placeholder:text-slate-500"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => { setPermanentDeleteTarget(null); setPermanentConfirmInput(''); }}
+                disabled={isPermanentDeleting}
+                className="bg-white/5 hover:bg-white/10 text-slate-300 px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition border border-white/10 disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPermanentDelete}
+                disabled={isPermanentDeleting || (permanentConfirmInput.trim() !== 'ลบถาวร' && permanentConfirmInput.trim().toUpperCase() !== 'DELETE')}
+                className="bg-rose-600 hover:bg-rose-700 disabled:opacity-30 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-rose-600/30 transition cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                {isPermanentDeleting ? 'กำลังลบถาวร...' : 'ยืนยันลบถาวร'}
               </button>
             </div>
           </div>

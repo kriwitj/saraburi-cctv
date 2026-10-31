@@ -698,7 +698,7 @@ def delete_admin_project(
 @app.get("/api/v1/cameras", response_model=List[schemas.CameraAssetOut])
 def read_cameras(
     skip: int = 0,
-    limit: int = 100,
+    limit: Optional[int] = Query(None, description="จำกัดจำนวนผลลัพธ์ (ถ้าไม่ระบุจะดึงทั้งหมด)"),
     district_id: Optional[str] = None,
     local_gov_id: Optional[str] = None,
     status: Optional[str] = None,
@@ -1070,6 +1070,104 @@ def bulk_remove_cameras(
             failed_ids.append(cam_id)
 
     msg = f"ลบข้อมูลกล้องสำเร็จ {deleted_count} รายการ"
+    if failed_ids:
+        msg += f" (ล้มเหลวหรือไม่ได้รับสิทธิ์ {len(failed_ids)} รายการ)"
+
+    return schemas.CameraBulkDeleteResponse(
+        success=(deleted_count > 0 or len(failed_ids) == 0),
+        deleted_count=deleted_count,
+        failed_count=len(failed_ids),
+        failed_ids=failed_ids,
+        message=msg
+    )
+
+
+# --- PERMANENT DELETION (HARD DELETE) ---
+@app.delete("/api/v1/cameras/{camera_id}/permanent")
+def hard_remove_camera(
+    camera_id: str,
+    confirm_text: str = Query(..., description="พิมพ์ 'ลบถาวร' หรือ 'DELETE' เพื่อยืนยัน"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if current_user.role not in ["SUPER_ADMIN", "LOCAL_GOV_STAFF"]:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบข้อมูลกล้องแบบถาวร")
+
+    if confirm_text.strip() not in ["ลบถาวร", "DELETE", "delete"]:
+        raise HTTPException(status_code=400, detail="ข้อความยืนยันไม่ถูกต้อง (กรุณาพิมพ์ 'ลบถาวร' หรือ 'DELETE')")
+
+    db_cam = crud.get_camera(db, camera_id)
+    if not db_cam:
+        raise HTTPException(status_code=404, detail="ไม่พบข้อมูลกล้องดังกล่าว")
+
+    if current_user.role == "LOCAL_GOV_STAFF" and db_cam.local_gov_id != current_user.local_gov_id:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบกล้องของหน่วยงานอื่น")
+
+    success = crud.hard_delete_camera(db, camera_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="ไม่สามารถลบข้อมูลกล้องแบบถาวรได้")
+
+    crud.create_audit_log(
+        db,
+        schemas.AuditLogCreate(
+            action="HARD_DELETE_CAMERA",
+            target_type="CAMERA",
+            target_id=camera_id,
+            client_ip="127.0.0.1",
+            reason=f"ลบข้อมูลกล้อง {camera_id} แบบถาวร (Hard Delete) โดย {current_user.username}"
+        ),
+        username=current_user.username,
+        user_id=current_user.id
+    )
+    return {"success": True, "detail": f"ลบข้อมูลกล้อง {camera_id} แบบถาวรเรียบร้อยแล้ว"}
+
+
+@app.post("/api/v1/cameras/bulk-permanent-delete", response_model=schemas.CameraBulkDeleteResponse)
+def bulk_hard_remove_cameras(
+    req: schemas.CameraBulkPermanentDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if current_user.role not in ["SUPER_ADMIN", "LOCAL_GOV_STAFF"]:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบข้อมูลกล้องแบบถาวร")
+
+    if req.confirm_text.strip() not in ["ลบถาวร", "DELETE", "delete"]:
+        raise HTTPException(status_code=400, detail="ข้อความยืนยันไม่ถูกต้อง (กรุณาพิมพ์ 'ลบถาวร' หรือ 'DELETE')")
+
+    if not req.ids:
+        raise HTTPException(status_code=400, detail="กรุณาระบุรหัสกล้องที่ต้องการลบอย่างน้อย 1 รายการ")
+
+    deleted_count = 0
+    failed_ids = []
+
+    for cam_id in req.ids:
+        db_cam = crud.get_camera(db, cam_id)
+        if not db_cam:
+            failed_ids.append(cam_id)
+            continue
+
+        if current_user.role == "LOCAL_GOV_STAFF" and db_cam.local_gov_id != current_user.local_gov_id:
+            failed_ids.append(cam_id)
+            continue
+
+        if crud.hard_delete_camera(db, cam_id):
+            deleted_count += 1
+            crud.create_audit_log(
+                db,
+                schemas.AuditLogCreate(
+                    action="HARD_DELETE_CAMERA",
+                    target_type="CAMERA",
+                    target_id=cam_id,
+                    client_ip="127.0.0.1",
+                    reason=f"ลบข้อมูลกล้อง {cam_id} แบบถาวร (กลุ่ม) โดย {current_user.username}"
+                ),
+                username=current_user.username,
+                user_id=current_user.id
+            )
+        else:
+            failed_ids.append(cam_id)
+
+    msg = f"ลบข้อมูลกล้องแบบถาวรสำเร็จ {deleted_count} รายการ"
     if failed_ids:
         msg += f" (ล้มเหลวหรือไม่ได้รับสิทธิ์ {len(failed_ids)} รายการ)"
 

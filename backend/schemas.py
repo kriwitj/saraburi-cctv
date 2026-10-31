@@ -113,6 +113,10 @@ class CameraAssetOut(BaseModel):
 class CameraBulkDeleteRequest(BaseModel):
     ids: List[str]
 
+class CameraBulkPermanentDeleteRequest(BaseModel):
+    ids: List[str]
+    confirm_text: str
+
 class CameraBulkDeleteResponse(BaseModel):
     success: bool
     deleted_count: int

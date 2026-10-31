@@ -508,7 +508,7 @@ def get_camera(db: Session, camera_id: str):
 def get_cameras(
     db: Session, 
     skip: int = 0, 
-    limit: int = 100, 
+    limit: Optional[int] = None, 
     district_id: str = None, 
     local_gov_id: str = None, 
     status: str = None,
@@ -529,7 +529,12 @@ def get_cameras(
     if install_point_type_id:
         query = query.filter(models.CameraAsset.install_point_type_id == install_point_type_id)
         
-    results = query.offset(skip).limit(limit).all()
+    if skip:
+        query = query.offset(skip)
+    if limit is not None and limit > 0:
+        query = query.limit(limit)
+        
+    results = query.all()
     
     cameras_out = []
     for db_camera, lng, lat in results:
@@ -659,6 +664,25 @@ def delete_camera(db: Session, camera_id: str):
         db.commit()
         return True
     return False
+
+def hard_delete_camera(db: Session, camera_id: str) -> bool:
+    """Hard delete: ลบข้อมูลกล้องและข้อมูลที่เกี่ยวข้องทั้งหมดออกจากฐานข้อมูลจริงอย่างถาวร"""
+    db_cam = db.query(models.CameraAsset).filter(models.CameraAsset.id == camera_id).first()
+    if not db_cam:
+        return False
+    try:
+        # ลบตารางที่อ้างอิง foreign key ที่อาจไม่มี ON DELETE CASCADE
+        db.query(models.MaintenanceTicket).filter(models.MaintenanceTicket.camera_id == camera_id).delete(synchronize_session=False)
+        db.query(models.HealthCheckLog).filter(models.HealthCheckLog.camera_id == camera_id).delete(synchronize_session=False)
+        db.query(models.UptimeMonthlyStat).filter(models.UptimeMonthlyStat.camera_id == camera_id).delete(synchronize_session=False)
+        db.query(models.NetworkInfrastructure).filter(models.NetworkInfrastructure.camera_id == camera_id).delete(synchronize_session=False)
+        # ลบกล้องจริง
+        db.delete(db_cam)
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        return False
 
 
 # --- MAINTENANCE TICKET CRUD ---
