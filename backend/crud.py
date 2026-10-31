@@ -1,4 +1,5 @@
 # crud.py
+from typing import Optional, List
 import datetime
 import re
 from sqlalchemy.orm import Session
