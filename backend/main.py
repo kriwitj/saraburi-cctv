@@ -1270,6 +1270,7 @@ def get_public_landing_stats(db: Session = Depends(get_db)):
 @app.post("/api/v1/cameras/import", response_model=schemas.BulkImportSummary)
 def import_cameras_bulk(
     file: UploadFile = File(...), 
+    preview: bool = Query(False, description="หากเป็น True จะตรวจสอบข้อมูลและสร้างรายการสรุปพรีวิวโดยยังไม่บันทึกลงฐานข้อมูล"),
     db: Session = Depends(get_db), 
     current_user: models.User = Depends(get_current_user)
 ):
@@ -1379,6 +1380,7 @@ def import_cameras_bulk(
         return None
 
     errors = []
+    preview_items = []
     imported_count = 0
     total_rows = len(df)
 
@@ -1419,11 +1421,21 @@ def import_cameras_bulk(
         # ถ้าไม่ระบุหรือหาไม่พบ ให้แจ้ง Error ทันที (ไม่ใช้ Default องค์การบริหารส่วนจังหวัดสระบุรี เด็ดขาด)
         if not target_local_gov:
             raw_display = str(gov_raw).strip() if gov_raw is not None else "(ไม่ได้ระบุ)"
+            err_msg = f"ไม่พบหน่วยงานเจ้าของ '{raw_display}' ในระบบ Master Data กรุณาระบุรหัสหน่วยงานหรือชื่อหน่วยงานที่ถูกต้อง"
             errors.append(schemas.RowErrorDetail(
                 row=row_num,
                 column="local_gov_id",
-                error=f"ไม่พบหน่วยงานเจ้าของ '{raw_display}' ในระบบ Master Data กรุณาระบุรหัสหน่วยงานหรือชื่อหน่วยงานที่ถูกต้อง"
+                error=err_msg
             ))
+            if preview:
+                preview_items.append(schemas.ImportPreviewItem(
+                    row=row_num,
+                    id=provided_id or "(ยังไม่มีรหัส)",
+                    local_gov_name=raw_display,
+                    address_ref=get_cell(row, ["address_ref", "สถานที่ติดตั้ง", "ที่อยู่", "สถานที่อ้างอิง", "Address Ref"]),
+                    is_valid=False,
+                    error_message=err_msg
+                ))
             continue
 
         target_local_gov_id = target_local_gov.id
@@ -1436,37 +1448,68 @@ def import_cameras_bulk(
         if existing_cam:
             # ตรวจสอบสิทธิ์เจ้าหน้าที่ อปท. ว่าสามารถแก้ไขได้เฉพาะของหน่วยงานตน
             if current_user.role == "LOCAL_GOV_STAFF" and existing_cam.local_gov_id != current_user.local_gov_id:
-                errors.append(schemas.RowErrorDetail(row=row_num, column="id", error=f"ไม่มีสิทธิ์แก้ไขกล้องรหัส {provided_id} ของหน่วยงานอื่น"))
+                err_msg = f"ไม่มีสิทธิ์แก้ไขกล้องรหัส {provided_id} ของหน่วยงานอื่น"
+                errors.append(schemas.RowErrorDetail(row=row_num, column="id", error=err_msg))
+                if preview:
+                    preview_items.append(schemas.ImportPreviewItem(
+                        row=row_num,
+                        id=provided_id,
+                        local_gov_id=target_local_gov_id,
+                        local_gov_name=target_local_gov.name_th,
+                        is_valid=False,
+                        error_message=err_msg
+                    ))
                 continue
             cam_id = existing_cam.id
         else:
             # หากไม่มีรหัส หรือไม่ตรงกับข้อมูลเดิมในระบบ ให้รันเลขใหม่โดยใช้ข้อมูลหน่วยงานเจ้าของ
-            cam_id = crud.generate_camera_id(db, target_local_gov_id)
+            if preview:
+                cam_id = provided_id if provided_id else "(สร้างรหัสใหม่อัตโนมัติ)"
+            else:
+                cam_id = crud.generate_camera_id(db, target_local_gov_id)
 
         # 4. พิกัดละติจูดและลองจิจูด
         lat_raw = get_cell(row, ["latitude", "lat", "ละติจูด"])
         lng_raw = get_cell(row, ["longitude", "lng", "lon", "ลองจิจูด"])
+        lat = None
+        lng = None
         try:
             lat = float(lat_raw)
             lng = float(lng_raw)
         except (TypeError, ValueError):
-            errors.append(schemas.RowErrorDetail(row=row_num, column="coordinate", error="พิกัดละติจูดและลองจิจูดต้องเป็นตัวเลขที่ถูกต้อง"))
+            err_msg = "พิกัดละติจูดและลองจิจูดต้องเป็นตัวเลขที่ถูกต้อง"
+            errors.append(schemas.RowErrorDetail(row=row_num, column="coordinate", error=err_msg))
+            if preview:
+                preview_items.append(schemas.ImportPreviewItem(
+                    row=row_num,
+                    id=cam_id,
+                    local_gov_id=target_local_gov_id,
+                    local_gov_name=target_local_gov.name_th,
+                    is_valid=False,
+                    error_message=err_msg
+                ))
             continue
 
         if not (14.20 <= lat <= 15.10) or not (100.50 <= lng <= 101.60):
-            errors.append(schemas.RowErrorDetail(row=row_num, column="coordinate", error="พิกัดต้องอยู่ภายในขอบเขตจังหวัดสระบุรี (lat: 14.20-15.10, lng: 100.50-101.60)"))
+            err_msg = "พิกัดต้องอยู่ภายในขอบเขตจังหวัดสระบุรี (lat: 14.20-15.10, lng: 100.50-101.60)"
+            errors.append(schemas.RowErrorDetail(row=row_num, column="coordinate", error=err_msg))
+            if preview:
+                preview_items.append(schemas.ImportPreviewItem(
+                    row=row_num,
+                    id=cam_id,
+                    local_gov_id=target_local_gov_id,
+                    local_gov_name=target_local_gov.name_th,
+                    lat=lat,
+                    lng=lng,
+                    is_valid=False,
+                    error_message=err_msg
+                ))
             continue
 
         # 5. ยี่ห้อและรุ่น (Brand & Catalog)
         brand_name = get_cell(row, ["brand", "ยี่ห้อ", "ยี่ห้อกล้อง"], default="Hikvision")
-        db_brand = db.query(models.DeviceBrand).filter(models.DeviceBrand.name.ilike(brand_name)).first()
-        if not db_brand:
-            db_brand = models.DeviceBrand(name=brand_name)
-            db.add(db_brand)
-            db.commit()
-            db.refresh(db_brand)
-
         model_name = get_cell(row, ["model", "รุ่น"], default="DefaultModel")
+
         category_map = {
             "FIXED": "FIXED",
             "DOME": "DOME",
@@ -1486,6 +1529,58 @@ def import_cameras_bulk(
         }
         category_raw = get_cell(row, ["category", "ประเภทกล้อง", "หมวดหมู่", "Category"], default="FIXED").strip()
         category = category_map.get(category_raw, category_map.get(category_raw.upper(), "FIXED"))
+
+        status_map = {
+            "ONLINE": "ONLINE",
+            "OFFLINE": "OFFLINE",
+            "MAINTENANCE": "MAINTENANCE",
+            "PENDING_INSTALL": "PENDING_INSTALL",
+            "REMOVED": "REMOVED",
+            "พร้อมใช้งาน": "ONLINE",
+            "ออนไลน์": "ONLINE",
+            "ชำรุด": "OFFLINE",
+            "ขัดข้อง": "OFFLINE",
+            "ชำรุด/ขัดข้อง": "OFFLINE",
+            "ออฟไลน์": "OFFLINE",
+            "ซ่อม": "MAINTENANCE",
+            "อยู่ระหว่างซ่อม": "MAINTENANCE",
+            "ซ่อมบำรุง": "MAINTENANCE",
+            "รอติดตั้ง": "PENDING_INSTALL",
+            "ปลดประจำการ": "REMOVED",
+            "ลบแล้ว": "REMOVED",
+        }
+        status_raw = get_cell(row, ["status", "สถานะ", "Status"], default="ONLINE").strip()
+        status_val = status_map.get(status_raw, status_map.get(status_raw.upper(), "ONLINE"))
+
+        addr_ref = get_cell(row, ["address_ref", "สถานที่ติดตั้ง", "ที่อยู่", "สถานที่อ้างอิง", "Address Ref"], default="ไม่ระบุสถานที่ติดตั้ง")
+
+        # หากเป็นโหมด Preview: เพิ่มรายการพรีวิวลงตารางและนับจำนวนพร้อมนำเข้า โดยไม่เขียนลง DB
+        if preview:
+            preview_items.append(schemas.ImportPreviewItem(
+                row=row_num,
+                id=cam_id,
+                local_gov_id=target_local_gov_id,
+                local_gov_name=target_local_gov.name_th,
+                brand=brand_name,
+                model=model_name,
+                lat=lat,
+                lng=lng,
+                address_ref=addr_ref,
+                status=status_val,
+                is_existing=existing_cam is not None,
+                is_valid=True,
+                error_message=None
+            ))
+            imported_count += 1
+            continue
+
+        # หากเป็นการนำเข้าจริง (preview=False)
+        db_brand = db.query(models.DeviceBrand).filter(models.DeviceBrand.name.ilike(brand_name)).first()
+        if not db_brand:
+            db_brand = models.DeviceBrand(name=brand_name)
+            db.add(db_brand)
+            db.commit()
+            db.refresh(db_brand)
 
         db_cat = db.query(models.DeviceCatalog).filter(
             models.DeviceCatalog.brand_id == db_brand.id,
@@ -1555,28 +1650,6 @@ def import_cameras_bulk(
         purpose_raw = get_cell(row, ["purpose_type", "จุดมุ่งหมายหลัก", "วัตถุประสงค์"], default="SAFETY")
         purpose_type = purpose_map.get(purpose_raw, "SAFETY")
 
-        status_map = {
-            "ONLINE": "ONLINE",
-            "OFFLINE": "OFFLINE",
-            "MAINTENANCE": "MAINTENANCE",
-            "PENDING_INSTALL": "PENDING_INSTALL",
-            "REMOVED": "REMOVED",
-            "พร้อมใช้งาน": "ONLINE",
-            "ออนไลน์": "ONLINE",
-            "ชำรุด": "OFFLINE",
-            "ขัดข้อง": "OFFLINE",
-            "ชำรุด/ขัดข้อง": "OFFLINE",
-            "ออฟไลน์": "OFFLINE",
-            "ซ่อม": "MAINTENANCE",
-            "อยู่ระหว่างซ่อม": "MAINTENANCE",
-            "ซ่อมบำรุง": "MAINTENANCE",
-            "รอติดตั้ง": "PENDING_INSTALL",
-            "ปลดประจำการ": "REMOVED",
-            "ลบแล้ว": "REMOVED",
-        }
-        status_raw = get_cell(row, ["status", "สถานะ", "Status"], default="ONLINE").strip()
-        status_val = status_map.get(status_raw, status_map.get(status_raw.upper(), "ONLINE"))
-
         # 9. บันทึกข้อมูลกล้อง (Upsert)
         try:
             payload = schemas.CameraAssetCreate(
@@ -1596,7 +1669,7 @@ def import_cameras_bulk(
                 azimuth_deg=parse_float(get_cell(row, ["azimuth_deg", "azimuth", "ทิศทาง", "ทิศทางกล้อง", "ทิศ", "Azimuth"]), default=0.0),
                 view_angle_deg=parse_float(get_cell(row, ["view_angle_deg", "fov_horizontal", "fov", "มุมมอง", "มุมมองภาพ", "FOV"]), default=90.0),
                 view_range_m=parse_float(get_cell(row, ["view_range_m", "ระยะมองเห็น", "ระยะ", "View Range"]), default=30.0),
-                address_ref=get_cell(row, ["address_ref", "สถานที่ติดตั้ง", "ที่อยู่", "สถานที่อ้างอิง", "Address Ref"], default="ไม่ระบุสถานที่ติดตั้ง"),
+                address_ref=addr_ref,
                 installation_site_id=site_id,
                 install_point_type_id=point_type_id,
                 camera_function_type_id=func_type_id,
@@ -1616,25 +1689,27 @@ def import_cameras_bulk(
             errors.append(schemas.RowErrorDetail(row=row_num, column="DB_Error", error=f"ไม่สามารถบันทึกลงฐานข้อมูลได้: {str(ex)}"))
             db.rollback()
 
-    crud.create_audit_log(
-        db,
-        schemas.AuditLogCreate(
-            action="IMPORT_ASSETS", 
-            target_type="CAMERA", 
-            target_id=file.filename, 
-            client_ip="127.0.0.1", 
-            reason=f"นำเข้าข้อมูลกล้องแบบชุดสำเร็จ {imported_count} รายการ, ล้มเหลว {len(errors)} รายการ"
-        ),
-        username=current_user.username,
-        user_id=current_user.id
-    )
+    if not preview:
+        crud.create_audit_log(
+            db,
+            schemas.AuditLogCreate(
+                action="IMPORT_ASSETS", 
+                target_type="CAMERA", 
+                target_id=file.filename, 
+                client_ip="127.0.0.1", 
+                reason=f"นำเข้าข้อมูลกล้องแบบชุดสำเร็จ {imported_count} รายการ, ล้มเหลว {len(errors)} รายการ"
+            ),
+            username=current_user.username,
+            user_id=current_user.id
+        )
 
     return schemas.BulkImportSummary(
         success=len(errors) == 0,
         total_rows=total_rows,
         imported_count=imported_count,
         failed_count=len(errors),
-        errors=errors
+        errors=errors,
+        preview_items=preview_items if preview else None
     )
 
 

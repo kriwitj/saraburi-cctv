@@ -252,12 +252,28 @@ class RowErrorDetail(BaseModel):
     column: str
     error: str
 
+class ImportPreviewItem(BaseModel):
+    row: int
+    id: Optional[str] = None
+    local_gov_id: Optional[str] = None
+    local_gov_name: Optional[str] = None
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    address_ref: Optional[str] = None
+    status: Optional[str] = "ONLINE"
+    is_existing: bool = False
+    is_valid: bool = True
+    error_message: Optional[str] = None
+
 class BulkImportSummary(BaseModel):
     success: bool
     total_rows: int
     imported_count: int
     failed_count: int
     errors: List[RowErrorDetail]
+    preview_items: Optional[List[ImportPreviewItem]] = None
 
 class LocalGovernmentBase(BaseModel):
     name_th: str

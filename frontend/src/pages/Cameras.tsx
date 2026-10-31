@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Search, AlertOctagon, Download, Upload, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Trash2, Loader2, RefreshCw, X, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Plus, Search, AlertOctagon, Download, Upload, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Trash2, Loader2, RefreshCw, X, AlertTriangle, RotateCcw, CheckCircle2, FileText, Check } from 'lucide-react';
 import { apiClient, extractErrorMessage } from '../api/client';
 import {
   useDeviceBrands, useDeviceCatalog, useLocalGovernments, useNvrVmsSystems, useProjects,
@@ -120,6 +120,32 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
   const nvrVmsApi = useNvrVmsSystems(form.local_gov_id || undefined);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isImportPreviewing, setIsImportPreviewing] = useState(false);
+  const [isSubmittingImport, setIsSubmittingImport] = useState(false);
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
+  const [importPreviewData, setImportPreviewData] = useState<{
+    total_rows: number;
+    imported_count: number;
+    failed_count: number;
+    errors: Array<{ row: number; column: string; error: string }>;
+    preview_items?: Array<{
+      row: number;
+      id?: string;
+      local_gov_id?: string;
+      local_gov_name?: string;
+      brand?: string;
+      model?: string;
+      lat?: number;
+      lng?: number;
+      address_ref?: string;
+      status?: string;
+      is_existing: boolean;
+      is_valid: boolean;
+      error_message?: string;
+    }>;
+  } | null>(null);
+  const [previewFilterTab, setPreviewFilterTab] = useState<'ALL' | 'VALID' | 'ERROR'>('ALL');
+  const [previewSearch, setPreviewSearch] = useState('');
   const [importSummary, setImportSummary] = useState<any>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
@@ -478,17 +504,59 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
   };
 
 
+  const filteredPreviewItems = useMemo(() => {
+    if (!importPreviewData?.preview_items) return [];
+    return importPreviewData.preview_items.filter(item => {
+      if (previewFilterTab === 'VALID' && !item.is_valid) return false;
+      if (previewFilterTab === 'ERROR' && item.is_valid) return false;
+      if (previewSearch.trim()) {
+        const q = previewSearch.toLowerCase();
+        const matchId = (item.id || '').toLowerCase().includes(q);
+        const matchGov = (item.local_gov_name || '').toLowerCase().includes(q) || (item.local_gov_id || '').toLowerCase().includes(q);
+        const matchBrand = (item.brand || '').toLowerCase().includes(q) || (item.model || '').toLowerCase().includes(q);
+        const matchAddr = (item.address_ref || '').toLowerCase().includes(q);
+        const matchErr = (item.error_message || '').toLowerCase().includes(q);
+        return matchId || matchGov || matchBrand || matchAddr || matchErr;
+      }
+      return true;
+    });
+  }, [importPreviewData, previewFilterTab, previewSearch]);
+
   const handleImportFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setIsImporting(true);
+    setPendingImportFile(file);
+    setIsImportPreviewing(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
+      const res = await apiClient.post('/cameras/import?preview=true', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setImportPreviewData(res.data);
+      setPreviewFilterTab('ALL');
+      setPreviewSearch('');
+    } catch (err: any) {
+      addToast(extractErrorMessage(err, 'ไม่สามารถเปิดอ่านไฟล์หรือตรวจสอบข้อมูลได้'), 'error');
+      setPendingImportFile(null);
+    } finally {
+      setIsImportPreviewing(false);
+      if (importInputRef.current) importInputRef.current.value = '';
+    }
+  };
+
+  const handleConfirmImportSubmit = async () => {
+    if (!pendingImportFile) return;
+    setIsSubmittingImport(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', pendingImportFile);
       const res = await apiClient.post('/cameras/import', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setImportSummary(res.data);
+      setImportPreviewData(null);
+      setPendingImportFile(null);
       if (res.data.imported_count > 0) refetchCameras();
       addToast(
         res.data.failed_count === 0
@@ -499,8 +567,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
     } catch (err: any) {
       addToast(extractErrorMessage(err, 'นำเข้าข้อมูลไม่สำเร็จ'), 'error');
     } finally {
-      setIsImporting(false);
-      if (importInputRef.current) importInputRef.current.value = '';
+      setIsSubmittingImport(false);
     }
   };
 
@@ -759,10 +826,20 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
               />
               <button
                 onClick={() => importInputRef.current?.click()}
-                disabled={isImporting}
+                disabled={isImportPreviewing}
                 className="bg-white/5 hover:bg-white/10 text-slate-300 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-2 border border-white/10 cursor-pointer disabled:opacity-50"
               >
-                <Upload className="w-4 h-4" /> {isImporting ? 'กำลังนำเข้า...' : 'นำเข้าไฟล์ (CSV/Excel)'}
+                {isImportPreviewing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+                    <span>กำลังตรวจสอบข้อมูล...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    <span>นำเข้าไฟล์ (CSV/Excel)</span>
+                  </>
+                )}
               </button>
               <button
                 onClick={() => { resetForm(); setIsAddModalOpen(true); }}
@@ -1100,6 +1177,289 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
                 <button type="submit" className="bg-[#005BAC] text-white py-2 px-5 rounded-lg text-xs font-bold cursor-pointer">บันทึกการแก้ไข</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* IMPORT PREVIEW MODAL (สรุปตารางก่อน submit เข้าฐานข้อมูล) */}
+      {importPreviewData && (
+        <div className="fixed inset-0 bg-black/80 z-[15000] flex items-center justify-center backdrop-blur-md p-3 sm:p-5">
+          <div className="bg-[#0c1222] border border-[#00f2fe]/30 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl text-white animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-white/10 bg-slate-900/60">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500/20 to-blue-600/30 border border-sky-500/30 flex items-center justify-center text-[#00AEEF]">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-base text-white flex items-center gap-2">
+                    ตรวจสอบและสรุปข้อมูลการนำเข้ากล้อง
+                    <span className="text-xs font-normal text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20">
+                      ก่อนบันทึกลงฐานข้อมูล
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-400">
+                    ไฟล์: <span className="text-slate-200 font-mono">{pendingImportFile?.name}</span>
+                    {pendingImportFile?.size ? ` (${(pendingImportFile.size / 1024).toFixed(1)} KB)` : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setImportPreviewData(null);
+                  setPendingImportFile(null);
+                }}
+                disabled={isSubmittingImport}
+                className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-white/5 transition text-lg font-bold cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content Container */}
+            <div className="p-6 flex flex-col gap-4 overflow-y-auto flex-1">
+              {/* Stat Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-slate-900/80 border border-white/5 rounded-xl p-3.5 flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] text-slate-400">ข้อมูลทั้งหมดในไฟล์</div>
+                    <div className="text-2xl font-black text-slate-100">{importPreviewData.total_rows}</div>
+                  </div>
+                  <div className="text-xs font-medium text-slate-400 bg-white/5 px-2.5 py-1 rounded-lg">แถว</div>
+                </div>
+
+                <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-xl p-3.5 flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] text-emerald-300 font-medium flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> พร้อมนำเข้าสู่ระบบ
+                    </div>
+                    <div className="text-2xl font-black text-emerald-400">{importPreviewData.imported_count}</div>
+                  </div>
+                  <div className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                    รายการผ่าน
+                  </div>
+                </div>
+
+                <div className="bg-rose-950/30 border border-rose-500/30 rounded-xl p-3.5 flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] text-rose-300 font-medium flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-400" /> พบข้อผิดพลาด
+                    </div>
+                    <div className="text-2xl font-black text-rose-400">{importPreviewData.failed_count}</div>
+                  </div>
+                  <div className="text-xs font-semibold text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-lg border border-rose-500/20">
+                    ไม่สามารถนำเข้า
+                  </div>
+                </div>
+              </div>
+
+              {/* Alert Warning if has errors */}
+              {importPreviewData.failed_count > 0 && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2.5 text-xs text-amber-200">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-amber-300">แจ้งเตือน:</span> พบรายการที่ไม่ผ่านการตรวจสอบจำนวน {importPreviewData.failed_count} แถว (จะถูกข้ามและไม่บันทึกลงฐานข้อมูล) ระบบจะทำการบันทึกเฉพาะรายการที่ผ่านการตรวจสอบเท่านั้น ({importPreviewData.imported_count} รายการ)
+                  </div>
+                </div>
+              )}
+
+              {/* Filter Tabs & Search */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+                {/* Tabs */}
+                <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-xl border border-white/5 w-fit">
+                  <button
+                    onClick={() => setPreviewFilterTab('ALL')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                      previewFilterTab === 'ALL'
+                        ? 'bg-sky-500 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    ทั้งหมด ({importPreviewData.total_rows})
+                  </button>
+                  <button
+                    onClick={() => setPreviewFilterTab('VALID')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                      previewFilterTab === 'VALID'
+                        ? 'bg-emerald-600 text-white shadow'
+                        : 'text-emerald-400 hover:text-emerald-300'
+                    }`}
+                  >
+                    พร้อมนำเข้า ({importPreviewData.imported_count})
+                  </button>
+                  <button
+                    onClick={() => setPreviewFilterTab('ERROR')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                      previewFilterTab === 'ERROR'
+                        ? 'bg-rose-600 text-white shadow'
+                        : 'text-rose-400 hover:text-rose-300'
+                    }`}
+                  >
+                    ข้อผิดพลาด ({importPreviewData.failed_count})
+                  </button>
+                </div>
+
+                {/* Search */}
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={previewSearch}
+                    onChange={e => setPreviewSearch(e.target.value)}
+                    placeholder="ค้นหาในตารางสรุป..."
+                    className="w-full bg-slate-900/80 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                  />
+                  {previewSearch && (
+                    <button
+                      onClick={() => setPreviewSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="border border-white/10 rounded-xl overflow-hidden bg-slate-950/40">
+                <div className="max-h-[380px] overflow-x-auto overflow-y-auto">
+                  <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                    <thead className="bg-[#121b2f] text-slate-400 sticky top-0 z-10 border-b border-white/10 text-[11px] uppercase tracking-wider">
+                      <tr>
+                        <th className="py-2.5 px-3 w-14 text-center">แถว</th>
+                        <th className="py-2.5 px-3 w-32">ผลการตรวจสอบ</th>
+                        <th className="py-2.5 px-3 min-w-[150px]">รหัสกล้อง</th>
+                        <th className="py-2.5 px-3 min-w-[170px]">หน่วยงานเจ้าของ</th>
+                        <th className="py-2.5 px-3 min-w-[140px]">ยี่ห้อ / รุ่น</th>
+                        <th className="py-2.5 px-3 min-w-[130px]">พิกัด (Lat, Lng)</th>
+                        <th className="py-2.5 px-3 min-w-[150px]">สถานที่ติดตั้ง</th>
+                        <th className="py-2.5 px-3 w-24 text-center">สถานะ</th>
+                        <th className="py-2.5 px-3 min-w-[200px]">หมายเหตุ / ข้อผิดพลาด</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 font-normal">
+                      {filteredPreviewItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="py-8 text-center text-slate-500 text-xs">
+                            ไม่พบรายการที่ตรงกับเงื่อนไขการค้นหา
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredPreviewItems.map((item, idx) => (
+                          <tr
+                            key={idx}
+                            className={`transition hover:bg-white/[0.03] ${
+                              !item.is_valid
+                                ? 'bg-rose-950/20'
+                                : item.is_existing
+                                ? 'bg-sky-950/15'
+                                : ''
+                            }`}
+                          >
+                            <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
+                              {item.row}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {!item.is_valid ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                  <AlertTriangle className="w-2.5 h-2.5" /> ไม่ผ่าน
+                                </span>
+                              ) : item.is_existing ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                                  <RotateCcw className="w-2.5 h-2.5" /> อัปเดตเดิม
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                  <Check className="w-2.5 h-2.5" /> เพิ่มใหม่
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono font-medium text-slate-200">
+                              {item.id}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <div className="text-slate-200 font-medium">{item.local_gov_name || '-'}</div>
+                              {item.local_gov_id && (
+                                <div className="text-[10px] text-slate-400 font-mono">{item.local_gov_id}</div>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className="text-slate-300">{item.brand || '-'}</span>
+                              {item.model && <span className="text-slate-500 ml-1 font-mono text-[11px]">({item.model})</span>}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-slate-400">
+                              {item.lat != null && item.lng != null ? `${item.lat.toFixed(4)}, ${item.lng.toFixed(4)}` : '-'}
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-300 max-w-[160px] truncate" title={item.address_ref}>
+                              {item.address_ref || '-'}
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                item.status === 'ONLINE' ? 'bg-emerald-500/10 text-emerald-400' :
+                                item.status === 'MAINTENANCE' ? 'bg-amber-500/10 text-amber-400' :
+                                'bg-slate-700/50 text-slate-400'
+                              }`}>
+                                {item.status || 'ONLINE'}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-xs">
+                              {item.error_message ? (
+                                <span className="text-rose-400 font-medium flex items-center gap-1">
+                                  <AlertOctagon className="w-3.5 h-3.5 shrink-0" />
+                                  {item.error_message}
+                                </span>
+                              ) : (
+                                <span className="text-emerald-400/80 text-[11px] flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-400" /> พร้อมบันทึก
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-white/10 bg-slate-900/60">
+              <div className="text-xs text-slate-400">
+                พร้อมนำเข้าสู่ฐานข้อมูล: <span className="text-emerald-400 font-bold">{importPreviewData.imported_count}</span> รายการ
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImportPreviewData(null);
+                    setPendingImportFile(null);
+                  }}
+                  disabled={isSubmittingImport}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-white/5 border border-white/10 transition cursor-pointer disabled:opacity-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmImportSubmit}
+                  disabled={isSubmittingImport || importPreviewData.imported_count === 0}
+                  className="bg-gradient-to-r from-[#005BAC] to-[#00AEEF] hover:opacity-95 text-white font-bold py-2 px-5 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-sky-500/20 cursor-pointer transition-all duration-200 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  {isSubmittingImport ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>กำลังนำเข้าสู่ฐานข้อมูล...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>ยืนยันนำเข้าข้อมูล ({importPreviewData.imported_count} รายการ)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
