@@ -460,7 +460,6 @@ INSERT INTO camera_function_types (id, name_th) VALUES
 ('PUBLIC_AREA_VIEW', 'กล้องวงจรปิดมุมมองกล้องเป็นพื้นที่สาธารณะ'),
 ('VIDEO_ANALYTICS', 'กล้องวงจรปิด วิเคราะห์ภาพ');
 
--- ผู้ใช้เริ่มต้นสำหรับการจำลองระบบ (รหัสผ่านคือ password_123 เข้ารหัสผ่านแอปอีกครั้ง)
+-- ผู้ดูแลระบบสูงสุดเริ่มต้น (Super Admin)
 INSERT INTO users (username, password_hash, full_name, role, district_id, local_gov_id, email, phone) VALUES
-('srb_super_admin', '$2b$12$Kj6gB9.53x8mG/O1Z6n3zOu9iW5hDbeMew6Uu1mG8o4xV2f1WqyfC', 'ผู้ดูแลระบบ จังหวัดสระบุรี', 'SUPER_ADMIN', NULL, NULL, 'cctv_admin@saraburi.go.th', '036-211111'),
-('gov_viewer', '$2b$12$Kj6gB9.53x8mG/O1Z6n3zOu9iW5hDbeMew6Uu1mG8o4xV2f1WqyfC', 'ผู้บริหารจังหวัดสระบุรี', 'GOVERNOR_VIEWER', NULL, NULL, 'governor@saraburi.go.th', '036-211112');
+('srb_super_admin', '$2b$12$Kj6gB9.53x8mG/O1Z6n3zOu9iW5hDbeMew6Uu1mG8o4xV2f1WqyfC', 'ผู้ดูแลระบบ จังหวัดสระบุรี', 'SUPER_ADMIN', NULL, NULL, 'cctv_admin@saraburi.go.th', '036-211111');

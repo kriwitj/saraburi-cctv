@@ -25,39 +25,25 @@ models.Base.metadata.create_all(bind=engine)
 # Seeding ข้อมูลลงฐานข้อมูลโดยตรงผ่านแอปพลิเคชัน (แก้ปัญหา Docker Volume ข้ามการรัน 01-init-db.sql)
 db = SessionLocal()
 try:
-    # 1. ตรวจสอบและสร้างผู้ใช้แอดมินและบัญชีทดสอบ 6 สิทธิ์ (อัปเดตรหัสผ่านใหม่เสมอเพื่อป้องกันค่าแฮชเดิมใน Volume ผิดพลาด)
-    hashed_pwd = crud.get_password_hash("password_123")
-    
-    seed_users = [
-        {"username": "srb_super_admin", "full_name": "ผู้ดูแลระบบ จังหวัดสระบุรี", "role": "SUPER_ADMIN", "email": "cctv_admin@saraburi.go.th", "district_id": None, "local_gov_id": None},
-        {"username": "gov_viewer", "full_name": "ผู้ว่าราชการจังหวัดสระบุรี", "role": "GOVERNOR_VIEWER", "email": "governor@saraburi.go.th", "district_id": None, "local_gov_id": None},
-        {"username": "district_1901", "full_name": "นายอำเภอเมืองสระบุรี", "role": "DISTRICT_ADMIN", "email": "district_1901@saraburi.go.th", "district_id": "1901", "local_gov_id": None},
-        {"username": "localgov_la190101", "full_name": "เจ้าหน้าที่ เทศบาลเมืองสระบุรี", "role": "LOCAL_GOV_STAFF", "email": "localgov_la190101@saraburi.go.th", "district_id": "1901", "local_gov_id": "LA-190101"},
-        {"username": "ma_tech", "full_name": "ช่างเทคนิค ผู้รับจ้าง MA", "role": "MA_TECHNICIAN", "email": "tech@srb-service.com", "district_id": None, "local_gov_id": None},
-        {"username": "police_srb", "full_name": "สารวัตรสืบสวน ภ.จว.สระบุรี", "role": "POLICE_VIEWER", "email": "police@saraburi.police.go.th", "district_id": None, "local_gov_id": None},
-    ]
+    # 1. ตรวจสอบและสร้างเฉพาะบัญชีผู้ดูแลระบบสูงสุด (Super Admin: srb_super_admin) เท่านั้น เพื่อความปลอดภัย
+    admin_u = db.query(models.User).filter(models.User.username == "srb_super_admin").first()
+    if not admin_u:
+        hashed_pwd = crud.get_password_hash("password_123")
+        db.add(models.User(
+            username="srb_super_admin",
+            password_hash=hashed_pwd,
+            full_name="ผู้ดูแลระบบ จังหวัดสระบุรี",
+            role="SUPER_ADMIN",
+            email="cctv_admin@saraburi.go.th",
+            district_id=None,
+            local_gov_id=None,
+            is_active=True
+        ))
+        db.commit()
 
-    for u in seed_users:
-        existing_u = db.query(models.User).filter(models.User.username == u["username"]).first()
-        if not existing_u:
-            db.add(models.User(
-                username=u["username"],
-                password_hash=hashed_pwd,
-                full_name=u["full_name"],
-                role=u["role"],
-                email=u["email"],
-                district_id=u["district_id"],
-                local_gov_id=u["local_gov_id"],
-                is_active=True
-            ))
-        else:
-            existing_u.password_hash = hashed_pwd
-            existing_u.full_name = u["full_name"]
-            existing_u.role = u["role"]
-            existing_u.district_id = u["district_id"]
-            existing_u.local_gov_id = u["local_gov_id"]
-            existing_u.is_active = True
-
+    # ลบบัญชีตัวอย่างทดสอบเดิมออกจากระบบ เพื่อความปลอดภัย (ให้แอดมินสร้างเองในระบบ)
+    demo_usernames = ["gov_viewer", "district_1901", "localgov_la190101", "ma_tech", "police_srb"]
+    db.query(models.User).filter(models.User.username.in_(demo_usernames)).delete(synchronize_session=False)
     db.commit()
 
     # 2. ตรวจสอบและสร้างประเภท อปท.

@@ -9,14 +9,6 @@ const ERROR_MESSAGES: Record<string, string> = {
   inactive: 'บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ',
 };
 
-const TEST_ACCOUNTS = [
-  { label: 'Super Admin', username: 'srb_super_admin', role: 'แอดมินจังหวัด (CRUD ทั้งหมด)' },
-  { label: 'ผู้ว่าฯ / คณะกรรมการ', username: 'gov_viewer', role: 'Read-only ทั้งจังหวัด' },
-  { label: 'นายอำเภอเมือง', username: 'district_1901', role: 'เฉพาะอำเภอเมืองสระบุรี' },
-  { label: 'เจ้าหน้าที่ อปท.', username: 'localgov_la190101', role: 'เทศบาลเมืองสระบุรี' },
-  { label: 'ช่างเทคนิค MA', username: 'ma_tech', role: 'รับงานซ่อมและปิดงาน' },
-  { label: 'ตำรวจ / คดี', username: 'police_srb', role: 'ขอดึงภาพตามคำร้อง PDPA' },
-];
 
 interface LoginProps {
   onLoginSuccess?: (user: any) => void;
@@ -28,8 +20,8 @@ export default function Login({ onLoginSuccess, addToast }: LoginProps) {
   const navigate = useNavigate();
   const errorParam = searchParams.get('error');
 
-  const [username, setUsername] = useState('srb_super_admin');
-  const [password, setPassword] = useState('password_123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(
     errorParam ? ERROR_MESSAGES[errorParam] || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' : null
@@ -156,33 +148,6 @@ export default function Login({ onLoginSuccess, addToast }: LoginProps) {
             </div>
           )}
 
-          {/* Quick Select Test Role Pills */}
-          <div className="mb-5">
-            <label className="text-[11px] font-bold text-[#00AEEF] block mb-2">
-              เลือกสิทธิ์ทดสอบด่วน (Quick Switch RBAC):
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {TEST_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.username}
-                  type="button"
-                  onClick={() => {
-                    setUsername(acc.username);
-                    setPassword('password_123');
-                    setLoginError(null);
-                  }}
-                  className={`text-left p-2 rounded-lg border text-[11px] transition cursor-pointer ${
-                    username === acc.username
-                      ? 'bg-[#005BAC]/30 border-[#00AEEF] text-white shadow-sm'
-                      : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
-                  }`}
-                >
-                  <strong className="block text-sky-300 font-bold truncate">{acc.label}</strong>
-                  <span className="text-[9px] text-slate-400 block truncate">{acc.role}</span>
-                </button>
-              ))}
-            </div>
-          </div>
 
           <form onSubmit={handleStandardLogin} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -193,7 +158,7 @@ export default function Login({ onLoginSuccess, addToast }: LoginProps) {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="เช่น srb_super_admin"
+                  placeholder="กรอกชื่อผู้ใช้งาน"
                   className="bg-transparent border-none text-xs text-white focus:outline-none w-full"
                   required
                 />
@@ -208,7 +173,7 @@ export default function Login({ onLoginSuccess, addToast }: LoginProps) {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
+                  placeholder="กรอกรหัสผ่าน"
                   className="bg-transparent border-none text-xs text-white focus:outline-none w-full"
                   required
                 />
