@@ -22,7 +22,7 @@ interface MasterDataProps {
 function ConfirmDeleteModal({ title, message, onConfirm, onCancel }: { title: string; message: string; onConfirm: () => void; onCancel: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
-      <div className="bg-[#0f1525] border border-red-500/20 rounded-2xl w-[400px] overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+      <div className="bg-[#0f1525] border border-red-500/20 rounded-2xl w-full max-w-[400px] mx-3 overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
         <div className="flex items-center gap-3 text-red-500 mb-4">
           <AlertOctagon className="w-6 h-6 shrink-0 text-red-500" />
           <h4 className="font-bold text-sm">{title}</h4>
@@ -40,7 +40,7 @@ function ConfirmDeleteModal({ title, message, onConfirm, onCancel }: { title: st
 function FormModal({ title, onClose, onSubmit, children }: { title: string; onClose: () => void; onSubmit: (e: React.FormEvent) => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
-      <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-[500px] overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+      <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-full max-w-[500px] mx-3 overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
         <div className="flex justify-between items-center mb-6 pb-3 border-b border-white/5">
           <h4 className="font-bold text-sm text-[#00AEEF]">{title}</h4>
           <button onClick={onClose} className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
@@ -264,7 +264,7 @@ function TabLocalGovernments({ data, refetch, districts, types, refetchTypes, ad
             <label className={labelCls}>ชื่อหน่วยงาน<RequiredMark /></label>
             <input className={inputCls} value={form.name_th} onChange={e => setForm({ ...form, name_th: e.target.value })} required />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="flex flex-col gap-1.5">
               <label className={labelCls}>ประเภทหน่วยงาน</label>
               <SearchableSelect
@@ -293,7 +293,7 @@ function TabLocalGovernments({ data, refetch, districts, types, refetchTypes, ad
             <label className={labelCls}>ผู้ประสานงานหลัก</label>
             <input className={inputCls} value={form.contact_person || ''} onChange={e => setForm({ ...form, contact_person: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="flex flex-col gap-1.5">
               <label className={labelCls}>เบอร์ติดต่อ</label>
               <input className={inputCls} value={form.phone || ''} onChange={e => setForm({ ...form, phone: e.target.value })} />
@@ -686,7 +686,7 @@ function TabDeviceCatalog({
             <label className={labelCls}>รุ่นอุปกรณ์ (Model)<RequiredMark /></label>
             <input className={inputCls} value={form.model} onChange={e => setForm({ ...form, model: e.target.value })} required />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="flex flex-col gap-1.5">
               <label className={labelCls}>ประเภทกล้อง<RequiredMark /></label>
               <SearchableSelect
@@ -702,7 +702,7 @@ function TabDeviceCatalog({
               <input className={inputCls} value={form.resolution} onChange={e => setForm({ ...form, resolution: e.target.value })} required />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="flex flex-col gap-1.5">
               <label className={labelCls}>มุมมอง FOV (°)</label>
               <input type="number" className={inputCls} value={form.fov_horizontal} onChange={e => setForm({ ...form, fov_horizontal: e.target.value })} />
@@ -936,7 +936,7 @@ function TabProjects({ data, refetch, addToast }: any) {
             <label className={labelCls}>ชื่อโครงการ<RequiredMark /></label>
             <input className={inputCls} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="flex flex-col gap-1.5">
               <label className={labelCls}>ปีงบประมาณ<RequiredMark /></label>
               <input type="number" className={inputCls} value={form.fiscal_year} onChange={e => setForm({ ...form, fiscal_year: e.target.value })} required />
@@ -946,7 +946,7 @@ function TabProjects({ data, refetch, addToast }: any) {
               <input className={inputCls} value={form.budget_source} onChange={e => setForm({ ...form, budget_source: e.target.value })} required />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="flex flex-col gap-1.5">
               <label className={labelCls}>วงเงินตั้ง (บาท)</label>
               <input type="number" className={inputCls} value={form.budget_allocated} onChange={e => setForm({ ...form, budget_allocated: e.target.value })} />
@@ -964,7 +964,7 @@ function TabProjects({ data, refetch, addToast }: any) {
             <label className={labelCls}>คู่สัญญา/ผู้รับจ้าง</label>
             <input className={inputCls} value={form.contractor_name} onChange={e => setForm({ ...form, contractor_name: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="flex flex-col gap-1.5">
               <label className={labelCls}>วันหมดประกัน</label>
               <input type="date" className={inputCls} value={form.warranty_expiry} onChange={e => setForm({ ...form, warranty_expiry: e.target.value })} />
@@ -1099,7 +1099,7 @@ function TabNvrVms({ data, refetch, localGovs, addToast }: any) {
             <label className={labelCls}>ชื่อระบบ/ศูนย์<RequiredMark /></label>
             <input className={inputCls} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="flex flex-col gap-1.5">
               <label className={labelCls}>ยี่ห้อ</label>
               <input className={inputCls} value={form.brand} onChange={e => setForm({ ...form, brand: e.target.value })} />

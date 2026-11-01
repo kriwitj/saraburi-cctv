@@ -43,8 +43,8 @@ export function PDPAStreamPlayer({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/85 z-[10000] flex items-center justify-center backdrop-blur-md">
-      <div className="bg-[#0c1223] border border-[#00f2fe]/40 rounded-2xl w-[700px] overflow-hidden shadow-[0_10px_50px_rgba(0,242,254,0.25)] text-white">
+    <div className="fixed inset-0 bg-black/85 z-[10000] flex items-center justify-center backdrop-blur-md p-3 sm:p-5">
+      <div className="bg-[#0c1223] border border-[#00f2fe]/40 rounded-2xl w-full max-w-[700px] overflow-hidden shadow-[0_10px_50px_rgba(0,242,254,0.25)] text-white">
         <div className="flex justify-between items-center p-5 border-b border-white/10 bg-black/10">
           <h3 className="font-bold text-sm text-[#00AEEF]">
             <Camera className="w-4 h-4 inline mr-2 text-[#00AEEF]" /> มอนิเตอร์กล้อง CCTV ทะเบียนกลาง

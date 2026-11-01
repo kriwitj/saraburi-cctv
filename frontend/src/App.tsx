@@ -6,7 +6,7 @@ import {
 import {
   Shield, Camera, LayoutDashboard, Wrench, FileText, History, Settings as SettingsIcon, UserCheck,
   Sun, Moon, Maximize, Languages, LogOut, ChevronLeft, ChevronRight,
-  CheckCircle, AlertOctagon, AlertTriangle, Database
+  CheckCircle, AlertOctagon, AlertTriangle, Database, Menu, X
 } from 'lucide-react';
 
 // Import Pages
@@ -271,12 +271,30 @@ function MainLayout({
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [location.pathname]);
+
+  const navItems = [
+    { path: '/dashboard', label: 'แดชบอร์ดสรุปผู้บริหาร', icon: LayoutDashboard },
+    { path: '/gis', label: 'แผนที่ GIS & กล้องวงจรปิด', icon: Camera },
+    { path: '/cameras', label: 'ทะเบียนสินทรัพย์กล้อง', icon: Camera },
+    { path: '/maintenance', label: 'แจ้งซ่อม & ประกันสัญญา MA', icon: Wrench },
+    { path: '/users', label: 'จัดการสิทธิ์ & สังกัดพื้นที่', icon: UserCheck },
+    { path: '/reports', label: 'รายงานงบจัดซื้อจัดจ้าง', icon: FileText },
+    { path: '/logs', label: 'ประวัติความปลอดภัย & Logs', icon: History },
+    { path: '/settings', label: 'ตั้งค่าการกู้คืน & ระบบ', icon: SettingsIcon },
+    { path: '/master-data', label: 'ข้อมูลตั้งต้นระบบ (8 ชุด)', icon: Database }
+  ];
 
   return (
     <div className={`flex h-screen overflow-hidden ${isPresentationMode ? 'presentation-active' : ''} ${
       isDarkMode ? 'bg-[#101418] text-white' : 'bg-[#F6F8FB] text-slate-800'
     }`}>
-      <aside className={`border-r shrink-0 flex flex-col justify-between transition-all duration-300 ${
+      {/* Desktop Sidebar (hidden on mobile) */}
+      <aside className={`border-r shrink-0 hidden md:flex flex-col justify-between transition-all duration-300 ${
         isSidebarCollapsed ? 'w-20' : 'w-72'
       } ${isDarkMode ? 'bg-[#0b0f19] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
 
@@ -298,17 +316,7 @@ function MainLayout({
           </div>
 
           <nav className="flex flex-col gap-1.5">
-            {[
-              { path: '/dashboard', label: 'แดชบอร์ดสรุปผู้บริหาร', icon: LayoutDashboard },
-              { path: '/gis', label: 'แผนที่ GIS & กล้องวงจรปิด', icon: Camera },
-              { path: '/cameras', label: 'ทะเบียนสินทรัพย์กล้อง', icon: Camera },
-              { path: '/maintenance', label: 'แจ้งซ่อม & ประกันสัญญา MA', icon: Wrench },
-              { path: '/users', label: 'จัดการสิทธิ์ & สังกัดพื้นที่', icon: UserCheck },
-              { path: '/reports', label: 'รายงานงบจัดซื้อจัดจ้าง', icon: FileText },
-              { path: '/logs', label: 'ประวัติความปลอดภัย & Logs', icon: History },
-              { path: '/settings', label: 'ตั้งค่าการกู้คืน & ระบบ', icon: SettingsIcon },
-              { path: '/master-data', label: 'ข้อมูลตั้งต้นระบบ (8 ชุด)', icon: Database }
-            ].map(item => {
+            {navItems.map(item => {
               const IconComp = item.icon;
               const isActive = currentPath === item.path;
 
@@ -334,7 +342,7 @@ function MainLayout({
 
         <div className="p-4 border-t border-white/5 flex flex-col gap-2 bg-black/10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-sky-400 select-none">
+            <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-sky-400 select-none shrink-0">
               {currentUser.username.substring(0, 2).toUpperCase()}
             </div>
             {!isSidebarCollapsed && (
@@ -344,7 +352,7 @@ function MainLayout({
               </div>
             )}
             {!isSidebarCollapsed && (
-              <button onClick={handleLogout} className="ml-auto text-slate-500 hover:text-red-400 transition cursor-pointer">
+              <button onClick={handleLogout} className="ml-auto text-slate-500 hover:text-red-400 transition cursor-pointer p-1 rounded">
                 <LogOut className="w-4 h-4" />
               </button>
             )}
@@ -358,19 +366,110 @@ function MainLayout({
         </div>
       </aside>
 
+      {/* Mobile Drawer Backdrop */}
+      {isMobileSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] md:hidden animate-in fade-in duration-200"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
+
+      {/* Mobile Drawer Panel */}
+      <div
+        className={`fixed inset-y-0 left-0 w-72 z-[101] flex flex-col justify-between md:hidden shadow-2xl transition-transform duration-300 ease-in-out ${
+          isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${isDarkMode ? 'bg-[#0b0f19] border-r border-white/10 text-white' : 'bg-white border-r border-slate-200 text-slate-800'}`}
+      >
+        <div className="flex flex-col gap-5 p-4 overflow-y-auto flex-grow">
+          {/* Mobile Drawer Header */}
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <div
+              className="flex items-center gap-3 cursor-pointer"
+              onClick={() => { navigate('/dashboard'); setIsMobileSidebarOpen(false); }}
+            >
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#005BAC] to-[#00AEEF] flex items-center justify-center shrink-0">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-xs tracking-wider">SRI CCTV INTEGRATE</h3>
+                <p className="text-[9px] text-[#00AEEF]">Command & Control</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <nav className="flex flex-col gap-1.5">
+            {navItems.map(item => {
+              const IconComp = item.icon;
+              const isActive = currentPath === item.path;
+              return (
+                <div
+                  key={item.path}
+                  className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 ${
+                    isActive
+                      ? 'bg-[#005BAC]/15 border border-[#005BAC]/35 text-[#00AEEF]'
+                      : 'hover:bg-white/5 text-slate-400 hover:text-slate-200'
+                  }`}
+                  onClick={() => {
+                    navigate(item.path);
+                    setIsMobileSidebarOpen(false);
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <IconComp className={`w-5 h-5 ${isActive ? 'text-[#00AEEF]' : 'text-slate-400'}`} />
+                    <span className="text-xs font-semibold">{item.label}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Mobile User Profile Footer */}
+        <div className="p-4 border-t border-white/10 flex items-center gap-3 bg-black/10">
+          <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-sky-400 select-none shrink-0">
+            {currentUser.username.substring(0, 2).toUpperCase()}
+          </div>
+          <div className="overflow-hidden flex-1">
+            <h4 className="font-bold text-xs truncate">{currentUser.full_name}</h4>
+            <p className="text-[10px] text-slate-400 truncate">{currentUser.role}</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="text-slate-500 hover:text-red-400 transition p-2 rounded-lg hover:bg-white/5 cursor-pointer"
+            title="ออกจากระบบ"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
       <div className={`flex-1 flex flex-col h-screen overflow-hidden ${
         isDarkMode ? 'bg-[#101418]' : 'bg-[#F6F8FB]'
       }`}>
-        <header className={`border-b flex justify-between items-center p-4 px-8 ${
+        <header className={`border-b flex justify-between items-center p-3 px-4 sm:p-4 sm:px-8 gap-3 shrink-0 ${
           isDarkMode ? 'bg-[#080d17] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'
         }`}>
-          <div className="flex items-center gap-4">
-            <div className="text-sm font-bold text-[#00AEEF]">
+          <div className="flex items-center gap-2.5 sm:gap-4 overflow-hidden">
+            {/* Hamburger Button for Mobile */}
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="md:hidden p-2 rounded-xl bg-white/5 hover:bg-white/10 text-sky-400 border border-white/10 transition cursor-pointer shrink-0"
+              title="เปิดเมนูนำทาง"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="text-xs sm:text-sm font-bold text-[#00AEEF] truncate">
               ศูนย์ปฏิบัติการจังหวัดสระบุรี (Saraburi CCOC)
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
               className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
@@ -386,14 +485,15 @@ function MainLayout({
             </button>
             <button
               onClick={() => setIsPresentationMode(!isPresentationMode)}
-              className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+              className="hidden sm:block p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+              title="โหมดนำเสนอภาพรวม"
             >
               <Maximize className="w-4 h-4" />
             </button>
           </div>
         </header>
 
-        <div className={`flex-grow overflow-y-auto p-8 relative ${
+        <div className={`flex-grow overflow-y-auto p-3 sm:p-6 md:p-8 relative ${
           isDarkMode ? 'bg-[#101418]' : 'bg-[#F6F8FB]'
         }`}>
           {children}

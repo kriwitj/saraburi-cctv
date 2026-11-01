@@ -192,7 +192,7 @@ export default function Reports({ currentUser, projects, refetchProjects, addToa
       {/* ADD PROJECT MODAL */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
-          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-[450px] overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-full max-w-[450px] mx-3 overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6 pb-3 border-b border-white/5">
               <h4 className="font-bold text-sm text-[#00AEEF]">ลงทะเบียนโครงการจัดซื้อจัดจ้างใหม่</h4>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
@@ -202,7 +202,7 @@ export default function Reports({ currentUser, projects, refetchProjects, addToa
                 <label className="text-xs text-slate-400">ชื่อแผนจัดซื้อ/ชื่อโครงการ<RequiredMark /></label>
                 <input type="text" value={form.name} onChange={setField('name')} placeholder="โครงการจัดหาเทคโนโลยีเฝ้าระวังภัย อปท. 2569" className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" required />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs text-slate-400">ปีงบประมาณ<RequiredMark /></label>
                   <input type="number" value={form.fiscal_year} onChange={setField('fiscal_year')} className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" required />
@@ -244,7 +244,7 @@ export default function Reports({ currentUser, projects, refetchProjects, addToa
       {/* EDIT PROJECT MODAL */}
       {editingProj && (
         <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
-          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-[450px] overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-full max-w-[450px] mx-3 overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6 pb-3 border-b border-white/5">
               <h4 className="font-bold text-sm text-[#00AEEF]">แก้ไขข้อมูลโครงการ #{editingProj.id}</h4>
               <button onClick={() => setEditingProj(null)} className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
@@ -254,7 +254,7 @@ export default function Reports({ currentUser, projects, refetchProjects, addToa
                 <label className="text-xs text-slate-400">ชื่อแผนจัดซื้อ/ชื่อโครงการ<RequiredMark /></label>
                 <input type="text" value={form.name} onChange={setField('name')} className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" required />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs text-slate-400">ปีงบประมาณ<RequiredMark /></label>
                   <input type="number" value={form.fiscal_year} onChange={setField('fiscal_year')} className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" required />
@@ -280,7 +280,7 @@ export default function Reports({ currentUser, projects, refetchProjects, addToa
       {/* DELETE PROJECT CONFIRMATION MODAL */}
       {deletingProjId !== null && (
         <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
-          <div className="bg-[#0f1525] border border-red-500/20 rounded-2xl w-[400px] overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0f1525] border border-red-500/20 rounded-2xl w-full max-w-[400px] mx-3 overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3 text-red-500 mb-4">
               <AlertOctagon className="w-6 h-6 shrink-0 text-red-500" />
               <h4 className="font-bold text-sm">ยืนยันการลบโครงการจัดซื้อ</h4>

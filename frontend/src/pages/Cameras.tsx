@@ -742,7 +742,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs text-slate-400">หมายเลขซีเรียล</label>
           <input type="text" value={form.serial_number} onChange={setField('serial_number')} placeholder="HK-99120-X" className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" />
@@ -767,7 +767,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs text-slate-400">Private IP</label>
           <input type="text" value={form.private_ip} onChange={setField('private_ip')} placeholder="192.168.1.10" className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" />
@@ -783,7 +783,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
         <input type="text" value={form.address_ref} onChange={setField('address_ref')} placeholder="สี่แยกทางรถไฟสระบุรี" className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" required />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs text-slate-400">หน่วยงานเจ้าของ<RequiredMark /></label>
           <SearchableSelect
@@ -817,7 +817,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs text-slate-400">ละติจูด (Latitude)<RequiredMark /></label>
           <input type="number" step="0.000001" value={form.latitude} onChange={setField('latitude')} placeholder="14.5272" className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" required />
@@ -828,7 +828,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs text-slate-400">ความสูง (m)</label>
           <input type="number" step="0.1" value={form.elevation_m} onChange={setField('elevation_m')} className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:outline-none" />
@@ -847,7 +847,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs text-slate-400">จุดติดตั้ง</label>
           <SearchableSelect
@@ -870,7 +870,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs text-slate-400">รายละเอียดประเภทกล้อง</label>
           <SearchableSelect
@@ -903,7 +903,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs text-slate-400">วันที่ติดตั้ง</label>
           <input type="date" value={form.install_date} onChange={setField('install_date')} className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:outline-none" />
@@ -919,7 +919,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
         <input type="text" value={form.stream_url} onChange={setField('stream_url')} placeholder="rtsp://... หรือ webrtc://..." className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:outline-none" />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs text-slate-400">ภาพถ่ายจุดติดตั้ง (URL)</label>
           <input type="text" value={form.photo_site_url} onChange={setField('photo_site_url')} className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:outline-none" />
@@ -1026,8 +1026,8 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
 
       <div className="bg-[#121a2f] border border-white/10 rounded-2xl p-6 flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex bg-black/20 border border-white/5 rounded-xl px-4 py-2 w-full max-w-md items-center gap-2">
-            <Search className="w-4 h-4 text-slate-500" />
+          <div className="flex bg-black/20 border border-white/5 rounded-xl px-4 py-2 w-full sm:w-auto sm:max-w-xs md:max-w-md items-center gap-2 flex-1">
+            <Search className="w-4 h-4 text-slate-500 shrink-0" />
             <input
               type="text"
               placeholder="ค้นหาด้วยไอดี หรือสถานที่ติดตั้ง..."
@@ -1036,7 +1036,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
               className="bg-transparent border-none text-xs text-white focus:outline-none w-full"
             />
           </div>
-          <div className="w-48">
+          <div className="w-full sm:w-48">
             <SearchableSelect
               value={filterLocalGovId}
               onChange={setFilterLocalGovId}
@@ -1046,7 +1046,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
             />
           </div>
           {activeTab === 'active' && (
-            <div className="w-40">
+            <div className="w-full sm:w-40">
               <SearchableSelect
                 value={filterStatus}
                 onChange={setFilterStatus}
@@ -1056,9 +1056,9 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
               />
             </div>
           )}
-          <div className="flex items-center gap-1.5 ml-auto">
-            <span className="text-[11px] text-slate-500">เรียงตาม</span>
-            <div className="w-44">
+          <div className="flex items-center gap-1.5 w-full sm:w-auto sm:ml-auto justify-between sm:justify-start">
+            <span className="text-[11px] text-slate-500 shrink-0">เรียงตาม</span>
+            <div className="w-full sm:w-44">
               <SearchableSelect
                 value={sortField}
                 onChange={(v) => setSortField(v as 'address_ref' | 'created_at')}
@@ -1068,7 +1068,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
             <button
               onClick={() => setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')}
               title={sortDir === 'asc' ? 'น้อยไปมาก' : 'มากไปน้อย'}
-              className="bg-white/5 hover:bg-white/10 text-slate-300 p-2.5 rounded-lg border border-white/10 cursor-pointer"
+              className="bg-white/5 hover:bg-white/10 text-slate-300 p-2.5 rounded-lg border border-white/10 cursor-pointer shrink-0"
             >
               {sortDir === 'asc' ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
             </button>
@@ -1299,7 +1299,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
       {/* ADD CAMERA MODAL */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
-          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-[560px] overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-full max-w-[560px] mx-3 overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6 pb-3 border-b border-white/5">
               <h4 className="font-bold text-sm text-[#00AEEF]">ลงทะเบียนกล้อง CCTV ใหม่</h4>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
@@ -1318,7 +1318,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
       {/* EDIT CAMERA MODAL */}
       {editingCam && (
         <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
-          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-[560px] overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-full max-w-[560px] mx-3 overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6 pb-3 border-b border-white/5">
               <h4 className="font-bold text-sm text-[#00AEEF]">แก้ไขข้อมูลกล้อง {editingCam.id}</h4>
               <button onClick={() => setEditingCam(null)} className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
@@ -1620,7 +1620,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
       {/* IMPORT SUMMARY MODAL */}
       {importSummary && (
         <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
-          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-[520px] overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-full max-w-[520px] mx-3 overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/5">
               <h4 className="font-bold text-sm text-[#00AEEF]">ผลการนำเข้าข้อมูลกล้องแบบชุด</h4>
               <button onClick={() => setImportSummary(null)} className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
@@ -2038,7 +2038,7 @@ export default function Cameras({ currentUser, cameras, refetchCameras, addToast
       {/* DELETE CONFIRMATION MODAL */}
       {deletingCamId && (
         <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
-          <div className="bg-[#0f1525] border border-red-500/20 rounded-2xl w-[400px] overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0f1525] border border-red-500/20 rounded-2xl w-full max-w-[400px] mx-3 overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3 text-red-500 mb-4">
               <AlertOctagon className="w-6 h-6 shrink-0 text-red-500" />
               <h4 className="font-bold text-sm">ยืนยันการลบกล้องวงจรปิด</h4>

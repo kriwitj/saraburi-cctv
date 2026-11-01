@@ -82,7 +82,7 @@ export default function Login({ onLoginSuccess, addToast }: LoginProps) {
       <div className="w-full max-w-[1050px] min-h-[620px] rounded-2xl border border-white/10 bg-white/5 backdrop-blur-2xl shadow-[0_30px_70px_rgba(0,0,0,0.5)] flex flex-col md:flex-row overflow-hidden z-10">
         
         {/* LEFT COLUMN: HERO BRANDING */}
-        <div className="md:w-5/12 bg-gradient-to-br from-[#005BAC]/90 via-[#005BAC]/75 to-[#00AEEF]/80 p-8 md:p-12 flex flex-col justify-between relative">
+        <div className="md:w-5/12 bg-gradient-to-br from-[#005BAC]/90 via-[#005BAC]/75 to-[#00AEEF]/80 p-6 sm:p-8 md:p-12 flex flex-col justify-between relative">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.3))]"></div>
           <div className="relative z-10">
             <div
@@ -124,7 +124,7 @@ export default function Login({ onLoginSuccess, addToast }: LoginProps) {
         </div>
 
         {/* RIGHT COLUMN: LOGIN FORM */}
-        <div className="md:w-7/12 p-8 md:p-12 flex flex-col justify-center bg-[#0d1322]/80">
+        <div className="md:w-7/12 p-6 sm:p-8 md:p-12 flex flex-col justify-center bg-[#0d1322]/80">
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
               <h3 className="text-xl md:text-2xl font-bold text-white">เข้าสู่ระบบ / Sign In</h3>

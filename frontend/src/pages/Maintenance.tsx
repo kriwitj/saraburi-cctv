@@ -108,7 +108,7 @@ export default function Maintenance({ currentUser, cameras, tickets, refetchTick
             <p className="text-xs text-slate-300 leading-relaxed">
               ยินดีต้อนรับผู้รับจ้าง MA ท่านสามารถกดรับงานจากรายการ และอัปเดตสถานะพร้อมแนบรูปถ่ายการทำงานในพื้นที่เพื่อปิดงานตามเงื่อนไข SLA
             </p>
-            <div className="grid grid-cols-2 gap-4 mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-2">
               <div className="bg-black/20 p-3 rounded-xl border border-white/5 text-center">
                 <Clock className="w-5 h-5 mx-auto text-amber-400 mb-1" />
                 <span className="text-[10px] text-slate-400 block uppercase">งานค้างรับ</span>
@@ -225,7 +225,7 @@ export default function Maintenance({ currentUser, cameras, tickets, refetchTick
       {/* RESOLVE TICKET MODAL */}
       {selectedTicketId && (
         <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
-          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-[450px] overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-full max-w-[450px] mx-3 overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6 pb-3 border-b border-white/5">
               <h4 className="font-bold text-sm text-[#00AEEF]">ปิดงานแจ้งซ่อมกล้องวงจรปิด</h4>
               <button onClick={() => setSelectedTicketId(null)} className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">&times;</button>

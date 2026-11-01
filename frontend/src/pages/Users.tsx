@@ -268,7 +268,7 @@ export default function Users({ currentUser, users, refetchUsers, addToast }: Us
       {/* ADD USER MODAL */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
-          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-[480px] overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-full max-w-[480px] mx-3 overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6 pb-3 border-b border-white/5">
               <h4 className="font-bold text-sm text-[#00AEEF]">เพิ่มผู้บัญชีใช้งานระบบใหม่</h4>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
@@ -286,7 +286,7 @@ export default function Users({ currentUser, users, refetchUsers, addToast }: Us
                 <label className="text-xs text-slate-400">ชื่อจริง - นามสกุล<RequiredMark /></label>
                 <input type="text" value={form.full_name} onChange={setField('full_name')} placeholder="นายสถิติ คุ้มภัย" className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" required />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs text-slate-400">อีเมลติดต่อ</label>
                   <input type="email" value={form.email} onChange={setField('email')} placeholder="staff@saraburi.go.th" className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" />
@@ -305,7 +305,7 @@ export default function Users({ currentUser, users, refetchUsers, addToast }: Us
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs text-slate-400">สังกัดอำเภอ</label>
                   <SearchableSelect
@@ -339,7 +339,7 @@ export default function Users({ currentUser, users, refetchUsers, addToast }: Us
       {/* EDIT USER MODAL */}
       {editingUser && (
         <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
-          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-[480px] overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0f1525] border border-[#00f2fe]/20 rounded-2xl w-full max-w-[480px] mx-3 overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6 pb-3 border-b border-white/5">
               <h4 className="font-bold text-sm text-[#00AEEF]">แก้ไขข้อมูลผู้ใช้ {editingUser.username}</h4>
               <button onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
@@ -357,7 +357,7 @@ export default function Users({ currentUser, users, refetchUsers, addToast }: Us
                 <label className="text-xs text-slate-400">ชื่อจริง - นามสกุล<RequiredMark /></label>
                 <input type="text" value={form.full_name} onChange={setField('full_name')} className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" required />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs text-slate-400">อีเมลติดต่อ</label>
                   <input type="email" value={form.email} onChange={setField('email')} className="bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-[#00AEEF] focus:outline-none" />
@@ -376,7 +376,7 @@ export default function Users({ currentUser, users, refetchUsers, addToast }: Us
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs text-slate-400">สังกัดอำเภอ</label>
                   <SearchableSelect
@@ -410,7 +410,7 @@ export default function Users({ currentUser, users, refetchUsers, addToast }: Us
       {/* DELETE USER CONFIRMATION MODAL */}
       {deletingUserId !== null && (
         <div className="fixed inset-0 bg-black/75 z-[15000] flex items-center justify-center backdrop-blur-md">
-          <div className="bg-[#0f1525] border border-red-500/20 rounded-2xl w-[400px] overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0f1525] border border-red-500/20 rounded-2xl w-full max-w-[400px] mx-3 overflow-hidden shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3 text-red-500 mb-4">
               <AlertOctagon className="w-6 h-6 shrink-0 text-red-500" />
               <h4 className="font-bold text-sm">ยืนยันการลบบัญชีผู้ใช้</h4>

@@ -35,7 +35,7 @@ export default function LandingPage({ currentUser }: LandingPageProps) {
   }, []);
 
   return (
-    <div className="h-screen max-h-screen w-full relative flex flex-col justify-between overflow-hidden font-sans select-none bg-[#030712] text-white">
+    <div className="min-h-screen h-auto md:h-screen md:max-h-screen w-full relative flex flex-col justify-between overflow-y-auto md:overflow-hidden font-sans select-none bg-[#030712] text-white">
       {/* BACKGROUND IMAGE & AMBIENT OVERLAYS */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0"
@@ -47,7 +47,7 @@ export default function LandingPage({ currentUser }: LandingPageProps) {
       </div>
 
       {/* TOPBAR NAVIGATION */}
-      <header className="relative z-20 flex items-center justify-between px-6 lg:px-12 py-3 lg:py-4 border-b border-white/5 backdrop-blur-sm bg-black/10 shrink-0">
+      <header className="relative z-20 flex items-center justify-between px-4 sm:px-6 lg:px-12 py-3 lg:py-4 border-b border-white/5 backdrop-blur-sm bg-black/10 shrink-0">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#005BAC] to-[#00AEEF] flex items-center justify-center shadow-lg shadow-[#00AEEF]/20">
             <Shield className="w-4 h-4 text-white" />
@@ -73,7 +73,7 @@ export default function LandingPage({ currentUser }: LandingPageProps) {
       </header>
 
       {/* MAIN HERO SECTION */}
-      <main className="relative z-10 max-w-2xl px-6 lg:px-12 py-2 lg:py-4 flex flex-col justify-center flex-grow overflow-hidden">
+      <main className="relative z-10 max-w-2xl px-4 sm:px-6 lg:px-12 py-4 lg:py-4 flex flex-col justify-center flex-grow overflow-visible md:overflow-hidden">
         {/* Accent Tagline with indicator line */}
         <div className="flex items-center gap-2 text-xs text-cyan-400 font-semibold tracking-wider mb-2">
           <span className="w-5 h-0.5 bg-cyan-400 rounded-full inline-block"></span>

@@ -223,8 +223,8 @@ export default function GisMap({ currentUser, cameras, handleWatchStream }: GisM
     <div className="flex flex-col gap-6 h-full text-white animate-in fade-in duration-300">
       <div className="flex justify-between items-center flex-wrap gap-3">
         <h3 className="font-bold text-base text-[#00AEEF]">แผนที่ภูมิสารสนเทศ (GIS Map View)</h3>
-        <div className="flex items-center gap-3 text-xs flex-wrap">
-          <div className="w-48">
+        <div className="flex items-center gap-2.5 sm:gap-3 text-xs flex-wrap w-full sm:w-auto">
+          <div className="w-full sm:w-48">
             <SearchableSelect
               value={filterLocalGovId}
               onChange={setFilterLocalGovId}
@@ -233,7 +233,7 @@ export default function GisMap({ currentUser, cameras, handleWatchStream }: GisM
               emptyLabel="ทุกหน่วยงาน"
             />
           </div>
-          <div className="w-40">
+          <div className="w-full sm:w-40">
             <SearchableSelect
               value={filterStatus}
               onChange={setFilterStatus}
@@ -242,16 +242,16 @@ export default function GisMap({ currentUser, cameras, handleWatchStream }: GisM
               emptyLabel="ทุกสถานะ"
             />
           </div>
-          <label className="flex items-center gap-2 cursor-pointer">
+          <label className="flex items-center gap-2 cursor-pointer py-1">
             <input type="checkbox" checked={showViewCones} onChange={(e) => setShowViewCones(e.target.checked)} className="accent-[#00AEEF]" />
             <span>แสดงทิศทางกล้อง (View Cones)</span>
           </label>
         </div>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[500px]">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 min-h-[550px] lg:h-[calc(100vh-220px)]">
         <div
           ref={mapWrapperRef}
-          className={`lg:col-span-2 rounded-2xl overflow-hidden border border-white/10 relative ${isFullscreen ? 'bg-[#0f1424]' : ''}`}
+          className={`lg:col-span-2 min-h-[380px] sm:min-h-[460px] h-full rounded-2xl overflow-hidden border border-white/10 relative ${isFullscreen ? 'bg-[#0f1424]' : ''}`}
         >
           <div id="leaflet-map-id" className="w-full h-full z-0 bg-[#0f1424]"></div>
           <button
@@ -289,7 +289,7 @@ export default function GisMap({ currentUser, cameras, handleWatchStream }: GisM
             </div>
           )}
         </div>
-        <div className={`bg-[#121a2f] border border-white/10 rounded-2xl p-6 overflow-y-auto flex flex-col gap-3 ${isFullscreen ? 'hidden' : ''}`}>
+        <div className={`bg-[#121a2f] border border-white/10 rounded-2xl p-4 sm:p-6 overflow-y-auto max-h-[350px] lg:max-h-full flex flex-col gap-3 ${isFullscreen ? 'hidden' : ''}`}>
           <h4 className="font-bold text-sm text-[#00AEEF]">รายการกล้องในขอบเขต</h4>
           {scopedCameras.map(cam => (
             <div
